@@ -1,0 +1,33 @@
+# Generated Images and Logs
+images/
+logs/
+
+# Runtime Data
+prompt_history.txt
+last_run.txt
+
+# Cache Files
+.weather_cache/
+__pycache__/
+*.pyc
+*.pyo
+
+# Weather Module (external dependency)
+weather/
+
+# Personal Files
+pieinthesky.md
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# IDE Files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+.venv/
