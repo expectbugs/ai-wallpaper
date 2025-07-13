@@ -20,6 +20,15 @@ import requests
 import shelve
 import atexit
 
+# Import theme selector - FAIL LOUDLY if not found
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    from theme_selector import get_random_theme_with_weather
+except ImportError as e:
+    print(f"ERROR: Failed to import theme_selector module: {e}")
+    print("Ensure theme_selector.py exists in the same directory")
+    sys.exit(1)
+
 # Configuration constants
 OLLAMA_PATH = "/usr/local/bin/ollama"
 LOG_DIR = "/home/user/ai-wallpaper/logs"
@@ -53,6 +62,37 @@ def log(message):
     with open(log_file, 'a') as f:
         f.write(full_message + '\n')
 
+def recreate_weather_cache():
+    """Recreate weather cache when corruption is detected"""
+    global weather_cache
+    import shutil
+    log("Weather cache corruption detected - recreating cache automatically...")
+    
+    # Close any existing cache handles
+    try:
+        if 'weather_cache' in globals():
+            weather_cache.close()
+    except:
+        pass
+    
+    # Remove corrupted cache directory
+    if os.path.exists(WEATHER_CACHE_DIR):
+        shutil.rmtree(WEATHER_CACHE_DIR)
+        log(f"Removed corrupted cache directory: {WEATHER_CACHE_DIR}")
+    
+    # Recreate directory and cache
+    os.makedirs(WEATHER_CACHE_DIR, exist_ok=True)
+    
+    # Create new cache
+    try:
+        weather_cache = shelve.open(os.path.join(WEATHER_CACHE_DIR, 'nws_api.cache'))
+        atexit.register(weather_cache.close)
+        log("Weather cache recreated successfully")
+        return weather_cache
+    except Exception as e:
+        log(f"FATAL ERROR: Cannot recreate weather cache: {e}")
+        sys.exit(1)
+
 # Initialize weather cache with proper cleanup and corruption detection
 os.makedirs(WEATHER_CACHE_DIR, exist_ok=True)
 try:
@@ -60,9 +100,7 @@ try:
     atexit.register(weather_cache.close)  # Ensure cache is closed on exit
 except Exception as e:
     log(f"ERROR: Weather cache corrupted or inaccessible: {e}")
-    log("Try deleting the cache directory and running again:")
-    log(f"  rm -rf {WEATHER_CACHE_DIR}")
-    sys.exit(1)
+    weather_cache = recreate_weather_cache()
 
 def get_weather_url_with_cache(url, cache_expiration=CACHE_FORECAST_EXPIRATION):
     """Get URL content with caching - NO FALLBACKS, FAIL LOUDLY"""
@@ -79,18 +117,26 @@ def get_weather_url_with_cache(url, cache_expiration=CACHE_FORECAST_EXPIRATION):
     except Exception as e:
         log(f"ERROR: Weather cache corrupted when reading: {e}")
         log(f"Failed to read cache for URL: {url}")
-        log("Try deleting the cache directory and running again:")
-        log(f"  rm -rf {WEATHER_CACHE_DIR}")
-        sys.exit(1)
+        recreate_weather_cache()
+        # After recreation, we need to fetch fresh data
+        needs_refresh = True
+        cache_hit = False
     
     if not cache_hit or needs_refresh:
         delay = TOO_MANY_API_CALLS_DELAY
         headers = {'User-Agent': WEATHER_AGENT, 'Accept': WEATHER_ACCEPT}
+        max_attempts = 5  # Maximum retry attempts for rate limiting
+        attempt = 0
         
         while True:
             response = requests.get(url, headers=headers, timeout=30)
             if response.status_code == requests.codes.too_many:
-                log(f"Weather API rate limited, waiting {delay} seconds...")
+                attempt += 1
+                if attempt >= max_attempts:
+                    log(f"ERROR: Weather API rate limited after {max_attempts} attempts")
+                    log("Maximum retry attempts exceeded - API may be down or heavily rate limited")
+                    sys.exit(1)
+                log(f"Weather API rate limited, waiting {delay} seconds... (attempt {attempt}/{max_attempts})")
                 time.sleep(delay)
                 delay *= 2
                 tim = time.time()
@@ -107,17 +153,24 @@ def get_weather_url_with_cache(url, cache_expiration=CACHE_FORECAST_EXPIRATION):
             weather_cache[url] = (tim, response.json())
         except Exception as e:
             log(f"ERROR: Failed to write to weather cache: {e}")
-            log("Cache may be corrupted. Try deleting the cache directory:")
-            log(f"  rm -rf {WEATHER_CACHE_DIR}")
-            sys.exit(1)
+            log("Cache may be corrupted - recreating...")
+            recreate_weather_cache()
+            # Try to write again after recreation
+            try:
+                weather_cache[url] = (tim, response.json())
+            except Exception as e2:
+                log(f"FATAL ERROR: Cannot write to recreated cache: {e2}")
+                sys.exit(1)
     
     # Try to read from cache with corruption detection
     try:
         return weather_cache[url][1]
     except Exception as e:
         log(f"ERROR: Failed to read from weather cache: {e}")
-        log("Cache may be corrupted. Try deleting the cache directory:")
-        log(f"  rm -rf {WEATHER_CACHE_DIR}")
+        log("Cache may be corrupted - this should not happen after write")
+        log("There may be a deeper issue with cache consistency")
+        recreate_weather_cache()
+        log(f"FATAL ERROR: Cache corruption occurred immediately after write operation: {e}")
         sys.exit(1)
 
 def get_weather_grid(latitude, longitude):
@@ -232,17 +285,17 @@ def start_ollama_server():
         
         # Wait for server to be ready
         log("Waiting for Ollama server to be ready...")
-        for i in range(30):  # Wait up to 30 seconds
+        wait_seconds = 0
+        while True:
             time.sleep(1)
+            wait_seconds += 1
             result = subprocess.run([OLLAMA_PATH, "list"], capture_output=True, text=True)
             if result.returncode == 0:
-                log("Ollama server is ready!")
+                log(f"Ollama server is ready after {wait_seconds} seconds!")
                 break
-            log(f"Still waiting... ({i+1}/30)")
-        else:
-            # This will fail loudly as requested
-            log("ERROR: Ollama server failed to start after 30 seconds")
-            sys.exit(1)
+            # Log progress every 10 seconds
+            if wait_seconds % 10 == 0:
+                log(f"Still waiting for Ollama server... ({wait_seconds} seconds elapsed)")
     else:
         log("Ollama server is already running")
 
@@ -308,40 +361,35 @@ def get_context_info():
     return context
 
 def generate_prompt_with_deepseek(history):
-    """Generate a unique, creative image prompt using deepseek-r1:14b, optimized for FLUX-Dev"""
+    """Generate a unique, creative image prompt using deepseek-r1:14b with themed guidance"""
     log("Generating creative prompt with deepseek-r1:14b...")
 
     context = get_context_info()
 
-    # Get last 3 prompts to help avoid repetition
-    recent_prompts = history[-3:] if len(history) >= 3 else history
-    recent_prompts_text = "\n".join([f"- {p}" for p in recent_prompts])
+    # Get themed instruction from theme selector
+    log("Selecting theme for prompt generation...")
+    theme_result = get_random_theme_with_weather(context['weather'])
+    
+    # Log the selected theme
+    log(f"Using theme: {theme_result['theme']['name']} from category {theme_result['category']}")
 
-    # Prepare weather info
-    weather = context['weather']
-    weather_description = f"{weather['condition']} at {weather['temperature']} with {weather['wind']} wind."
-
-    # DeepSeek instruction for high-quality, varied FLUX-Dev-compatible prompts
+    # DeepSeek instruction combining theme with requirements
     deepseek_instruction = f"""
 Generate a single, richly detailed image prompt for a desktop wallpaper, optimized for the FLUX-Dev model.
 
-Context: It’s {context['day_of_week']} in {context['season']}, with weather described as “{weather_description}” Let the weather and season inspire the scene, but do NOT fall back on generic landscapes or grassy fields.
+{theme_result['instruction']}
 
-Guidelines:
+Context: It's {context['day_of_week']} in {context['season']}.
+
+Requirements:
 - The prompt MUST be under 65 words. Do NOT go over.
 - The prompt MUST be the **only** thing in your output. Absolutely no extra text, no commentary, no quotes, no labels, no headers.
-- Try to generate or use a random number to select each element and theme and style and type and everything, but keep it photorealistic and super detailed and high quality with a lot going on.
-- Describe a vivid scene with a clear main subject doing something interesting (use active verbs).
-- Include distinct foreground, midground, and background elements.
-- Specify lighting, time of day, and atmospheric conditions.  Or go surreal, in space, or something crazy.
-- Mention color palette or artistic style (e.g. hyper-realistic, painterly, cinematic, surreal).
-- Add texture or material qualities (e.g. glowing, metallic, translucent, rough, soft).
-- Integrate the current weather and time creatively.
-- Be imaginative, unique, and visually compelling.
-- Use clear natural language, not a keyword list.
-
-Avoid repeating:
-{recent_prompts_text if recent_prompts_text else "- No previous prompts"}
+- Combine the theme elements creatively and unexpectedly.
+- Describe a vivid scene with clear composition: foreground, midground, and background.
+- Specify lighting and atmospheric conditions that enhance the theme.
+- Include the color palette and artistic style mentioned above.
+- Add rich texture and material details.
+- Make it photorealistic, ultra-detailed, and gallery-worthy.
 
 ONLY return the image prompt. No other text.
 
@@ -466,7 +514,7 @@ def generate_image(prompt):
     # Create the Python script to run in venv
     generation_script = f'''
 import torch
-from diffusers import FluxPipeline, FluxTransformer2DModel
+from diffusers import FluxPipeline, FluxTransformer2DModel, FlowMatchEulerDiscreteScheduler
 from transformers import T5EncoderModel
 from PIL import Image
 import gc
@@ -532,7 +580,9 @@ pipe = FluxPipeline.from_pretrained(
 
 # FLUX uses its default FlowMatchEulerDiscreteScheduler which is optimal
 # Other schedulers like DPM++ and Euler Ancestral are incompatible with FLUX's custom sigmas
-print("Using default FLUX scheduler (FlowMatchEulerDiscreteScheduler)")
+# Explicitly ensure we're using the correct scheduler
+pipe.scheduler = FlowMatchEulerDiscreteScheduler.from_config(pipe.scheduler.config)
+print("Using FlowMatchEulerDiscreteScheduler (explicit set for FLUX compatibility)")
 
 # FP8 is disabled, using standard precision
 fp8_active = False

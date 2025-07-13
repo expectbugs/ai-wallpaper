@@ -1,16 +1,16 @@
-# AI-Powered Daily Wallpaper Generator
+# AI Wallpaper Generator
 
-An automated system that generates unique, AI-created desktop wallpapers every day at 6 AM using local language models and image generation.
+Automated system that generates desktop wallpapers daily at 6 AM using local language models and image generation.
 
 ## Features
 
-- 🎨 **Unique Daily Art**: Never see the same wallpaper twice
-- 🤖 **AI-Powered Creativity**: Uses deepseek-r1:14b for imaginative prompts
-- 🖼️ **Ultra-High Quality**: Revolutionary 8K→4K supersampling for gallery-worthy results
-- 🗓️ **Automated Schedule**: Runs daily at 6 AM via cron
-- 📝 **History Tracking**: Ensures no duplicate themes
-- 🚀 **Fail-Fast Design**: Clear errors, no silent failures
-- 📊 **Comprehensive Logging**: Full visibility into operations
+- Generates unique wallpapers daily
+- Uses deepseek-r1:14b for prompt generation
+- 8K to 4K supersampling for upscaling
+- Runs daily at 6 AM via cron
+- Tracks history to prevent duplicates
+- Fails immediately on errors
+- Logs all operations
 
 ## Quick Start
 
@@ -32,10 +32,10 @@ cd /home/user/ai-wallpaper
 
 - Python 3.12+ with virtual environment at `/home/user/grace/.venv`
 - Ollama with deepseek-r1:14b model installed
-- FLUX.1-dev model (auto-downloads from HuggingFace)
+- FLUX.1-dev model
 - Real-ESRGAN installed at `/home/user/ai-wallpaper/Real-ESRGAN/`
 - XFCE4 desktop environment
-- NVIDIA RTX 3090 with 24GB VRAM
+- GPU with sufficient VRAM
 
 ## Components
 
@@ -57,24 +57,24 @@ Main script with all functionality:
 - `logs/`: Timestamped execution logs
 - `images/`: Generated wallpaper collection
 
-## How It Works
+## Process
 
 1. **Prompt Generation** (~2-3 minutes)
    - Loads previous prompts for uniqueness
-   - Fetches live weather data from NWS API
-   - Uses deepseek-r1:14b to create detailed scene (50+ words)
+   - Fetches weather data from NWS API
+   - Uses deepseek-r1:14b to create scene description
    - Considers date, season, weather, and mood
 
 2. **Image Generation** (~17 minutes)
    - Stage 1: FLUX-Dev generates at 1920x1088 (100 steps, guidance 3.5)
-   - Stage 2: Real-ESRGAN upscales 4x to 7680x4320 (8K resolution)
-   - Stage 3: Lanczos downsampling to 3840x2160 (supersampling quality)
-   - Saves multiple quality comparisons and final supersampled 4K wallpaper
+   - Stage 2: Real-ESRGAN upscales 4x to 7680x4320
+   - Stage 3: Lanczos downsampling to 3840x2160
+   - Saves intermediate files and final wallpaper
 
 3. **Wallpaper Setting** (< 1 second)
    - Sets wallpaper via xfconf-query
    - Handles DISPLAY environment
-   - Verifies successful setting
+   - Verifies setting
 
 ## Troubleshooting
 
@@ -96,24 +96,7 @@ ls -la /home/user/ai-wallpaper/logs/
 - **No DISPLAY**: Script sets DISPLAY=:0 automatically
 - **Ollama not running**: Script starts it automatically
 - **VRAM issues**: deepseek-r1 unloads before image generation
-- **8K Memory**: Real-ESRGAN uses tiling for efficient processing
-
-## Development Philosophy
-
-Built following these principles:
-- **Fail Fast, Fail Loud**: No error hiding
-- **Linear Simplicity**: Sequential execution
-- **Perfect or Dead**: Complete success or clear failure
-- **Radical Transparency**: Verbose logging
-
-## Examples
-
-Generated wallpapers have included:
-- Futuristic cityscape at dawn
-- Ethereal forest at twilight
-- Cosmic odyssey with celestial tree
-- Whimsical garden party
-- Underwater city civilization
+- **Memory**: Real-ESRGAN uses tiling for processing
 
 ## File Structure
 ```
@@ -122,11 +105,9 @@ Generated wallpapers have included:
 ├── run_daily_wallpaper.sh  # Cron wrapper
 ├── setup_cron.sh          # Setup helper
 ├── README.md              # This file
-├── CHANGELOG.md           # Development history
+├── CHANGELOG.md           # Version history
 ├── CRON_README.md         # Scheduling guide
-├── simpleplan.md          # Original design
-├── pieinthesky.md        # Extended design
-├── FLUX_UPDATE_SUMMARY.md # Model migration notes
+├── pieinthesky.md        # Design documentation
 ├── REAL_ESRGAN_SETUP.md  # Upscaler installation
 ├── prompt_history.txt     # Prompt archive
 ├── last_run.txt          # Latest status
@@ -134,19 +115,9 @@ Generated wallpapers have included:
 └── images/               # Wallpaper gallery
 ```
 
-## Statistics
+## Technical Details
 
-- **Generation Time**: ~17 minutes (8K supersampling optimized)
-- **Image Size**: 8-9 MB per wallpaper (supersampled quality)
-- **Success Rate**: 100% in testing
-- **Unique Prompts**: Weather-aware, unlimited variety
+- **Generation Time**: ~17 minutes
+- **Image Size**: 8-9 MB per wallpaper
 - **Model Parameters**: FLUX.1-dev (12B), deepseek-r1:14b (14B)
-- **Quality Enhancement**: 8K→4K supersampling eliminates artifacts
-
-## License
-
-Personal project - use at your own discretion.
-
----
-
-Enjoy waking up to a new, unique piece of AI art every day! 🎨
+- **Output Resolution**: 3840x2160 (4K)

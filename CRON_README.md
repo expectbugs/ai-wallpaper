@@ -1,21 +1,19 @@
-# Cron Setup Instructions for Daily Wallpaper Generation
+# Cron Setup
 
-## Overview
-This document explains how to set up automatic daily wallpaper generation at 6:00 AM using cron.
+Instructions for automatic daily wallpaper generation at 6:00 AM using cron.
 
 ## Components
 
 ### 1. Wrapper Script: `run_daily_wallpaper.sh`
-- Sets up the complete environment for cron execution
+- Sets up environment for cron execution
 - Activates Python virtual environment
-- Handles log rotation (keeps last 30 days)
-- Captures all output to log files
-- Fails loudly on any error
+- Handles log rotation (30 days)
+- Captures output to log files
 
 ### 2. Setup Script: `setup_cron.sh`
-- Interactive script to install cron job
-- Shows current crontab before making changes
-- Asks for confirmation before installing
+- Installs cron job
+- Shows current crontab
+- Asks for confirmation
 
 ## Installation
 
@@ -35,7 +33,6 @@ cd /home/user/ai-wallpaper
    ```
    0 6 * * * /home/user/ai-wallpaper/run_daily_wallpaper.sh
    ```
-   Note: No output redirection - failures will be emailed (fail loud!)
 
 3. Save and exit
 
@@ -52,74 +49,47 @@ cd /home/user/ai-wallpaper
 
 ## Verification
 
-### Check if cron job is installed:
+Check if cron job is installed:
 ```bash
 crontab -l
 ```
 
-### Monitor execution:
+Monitor execution:
 ```bash
-# Watch latest cron log
 tail -f /home/user/ai-wallpaper/logs/cron_*.log
-
-# Check all logs
 ls -la /home/user/ai-wallpaper/logs/
 ```
 
-### Test the wrapper script manually:
+Test the wrapper script:
 ```bash
 /home/user/ai-wallpaper/run_daily_wallpaper.sh
 ```
 
 ## Troubleshooting
 
-### Common Issues:
+### Common Issues
 
-1. **DISPLAY not set**
-   - The wrapper script sets `DISPLAY=:0`
-   - Ensure X11 is running on display :0
-
-2. **Python packages not found**
-   - Wrapper activates venv automatically
-   - Test with: `source /home/user/grace/.venv/bin/activate`
-
-3. **Ollama server not running**
-   - The Python script starts it automatically
-   - Can manually start: `ollama serve &`
-
-4. **No wallpaper change**
-   - Check logs in `/home/user/ai-wallpaper/logs/`
-   - Verify XFCE4 is running
-   - Test manually: `./run_daily_wallpaper.sh`
+1. **DISPLAY not set** - Wrapper script sets `DISPLAY=:0`
+2. **Python packages not found** - Wrapper activates venv automatically
+3. **Ollama server not running** - Python script starts it automatically
+4. **No wallpaper change** - Check logs in `/home/user/ai-wallpaper/logs/`
 
 ### Log Files
 
-All cron executions create detailed logs:
 - Location: `/home/user/ai-wallpaper/logs/cron_YYYY-MM-DD_HH-MM-SS.log`
-- Auto-rotation: Logs older than 30 days are deleted
-- Contains full output from Python script
+- Auto-rotation: 30 days
+- Contains full Python script output
 
-### Disable/Remove
+### Disable
 
-To disable the cron job:
 ```bash
 crontab -e
 # Comment out or delete the wallpaper line
 ```
 
-## Important Notes
-
-1. **Time Zone**: Cron uses system time. Verify with `date`
-2. **User Crontab**: This uses user crontab, not system crontab
-3. **Environment**: Cron runs with minimal environment; wrapper handles setup
-4. **Failures**: Any error causes immediate exit (fail-fast philosophy)
-5. **Email Alerts**: Errors will be emailed by cron (fail loud philosophy)
-
 ## Testing Different Times
 
-To test at different times, modify the cron schedule:
+Modify the cron schedule:
 - Every hour: `0 * * * *`
 - Every 5 minutes: `*/5 * * * *`
 - Specific time: `30 14 * * *` (2:30 PM)
-
-Remember to change back to `0 6 * * *` for 6:00 AM daily execution.

@@ -1,0 +1,160 @@
+# AI WALLPAPER ULTIMATE THEME DATABASE
+# Format: theme_name|core_elements|style_descriptors|color_palette|weight
+# Multiple elements separated by commas, use underscores for multi-word concepts
+
+# =================================================================
+# LOCAL MEDIA THEMES (30% total weight) - YOUR ACTUAL COLLECTION
+# =================================================================
+
+[LOCAL_MEDIA:30]
+
+# STAR TREK UNIVERSE (based on your Lower Decks, Strange New Worlds, massive book collection)
+star_trek_lower_decks|cerritos_ship_bridge,ensign_antics,starfleet_comedy,alien_encounters|animated_comedy_style,optimistic_trek|federation_blue,starfleet_gold,cosmic_purples|3
+star_trek_strange_new_worlds|enterprise_nx1701,pike_command,number_one_efficiency,spock_logic|modern_trek_aesthetic,sleek_futurism|enterprise_bridge_blues,silver_metallics,warm_amber|3
+star_trek_deep_space_nine|terok_nor_station,wormhole_phenomena,bajoran_mysteries,dominion_war|darker_trek_themes,complex_politics|cardassian_grays,bajoran_reds,prophetic_golds|2
+star_trek_next_generation|galaxy_class_enterprise,picard_diplomacy,data_positronics,holodeck_adventures|classic_trek_elegance,diplomatic_grandeur|tng_command_red,science_teal,operations_gold|3
+star_trek_voyager|lost_in_delta_quadrant,janeway_determination,borg_encounters,seven_of_nine|frontier_exploration,borg_gothic|voyager_grays,delta_blues,borg_greens|2
+
+# MARVEL CINEMATIC UNIVERSE (based on your complete MCU collection)
+marvel_avengers_assemble|superhero_team_formation,infinity_stones,thanos_threat,heroic_sacrifice|cinematic_superhero,epic_battles|heroic_primaries,cosmic_purples,infinity_rainbow|4
+marvel_guardians_galaxy|cosmic_outlaws,groot_majesty,rocket_engineering,starlord_mixtapes|space_opera_comedy,retro_cosmic|guardian_orange,cosmic_blues,nova_yellows|3
+marvel_thor_asgard|norse_mythology_meets_science,rainbow_bridge,mjolnir_lightning,loki_mischief|mythological_epic,godly_grandeur|asgardian_gold,bifrost_spectrum,lightning_whites|3
+marvel_iron_man_tech|arc_reactor_technology,stark_tower,repulsors_blazing,AI_assistance|sleek_tech_noir,mechanical_precision|stark_red_gold,arc_reactor_blue,metallic_chrome|3
+marvel_cosmic_entities|celestials_emerging,infinity_gauntlet,quantum_realm,multiverse_chaos|cosmic_horror_meets_heroism,reality_bending|cosmic_purples,infinity_golds,quantum_silvers|2
+
+# DOCTOR WHO UNIVERSE (based on your multi-season collection)
+doctor_who_tardis|time_vortex_spinning,gallifreyan_architecture,sonic_screwdriver,temporal_paradox|whimsical_time_travel,british_sci_fi|tardis_blue,gallifreyan_gold,vortex_spirals|3
+doctor_who_daleks|exterminate_chanting,skaro_wasteland,dalek_empire,time_war_echoes|mechanical_horror,pepper_pot_terror|dalek_bronze,skaro_reds,extermination_lights|2
+doctor_who_cybermen|cybermen_marching,mondas_conversion,delete_protocols,steel_plague|body_horror_tech,emotional_deletion|cyberman_silver,conversion_blues,deletion_grays|2
+
+# BLACK MIRROR DYSTOPIA (based on your S01-S05 collection)
+black_mirror_tech_horror|social_media_nightmare,rating_systems,digital_consciousness,memory_manipulation|dystopian_tech_noir,psychological_horror|screen_blue_glow,digital_grays,warning_reds|2
+black_mirror_virtual_reality|san_junipero_heaven,cookie_consciousness,dating_apps_hell,VR_addiction|digital_surrealism,tech_anxiety|virtual_neon,consciousness_white,digital_decay|2
+
+# FINAL FANTASY UNIVERSE (based on your extensive game and music collection)
+final_fantasy_vii|midgar_city_plates,mako_reactor_glow,cloud_strife_buster_sword,sephiroth_wing|anime_cinematic,steampunk_fantasy|mako_green,midgar_industrial,sephiroth_silver|4
+final_fantasy_ix|alexandria_castle,black_mage_magic,airship_adventures,crystal_memories|whimsical_fantasy,medieval_charm|crystal_blues,alexandria_purples,moogle_whites|3
+final_fantasy_tactics|ivalice_politics,job_class_warfare,ramza_determination,delita_ambition|tactical_medieval,political_intrigue|tactics_browns,noble_purples,war_crimsons|2
+final_fantasy_cosmic|bahamut_summons,chocobo_racing,esper_worlds,crystal_prophecies|high_fantasy_magic,summon_spectacle|crystal_rainbow,esper_ethereal,bahamut_majesty|3
+
+# JET LI MARTIAL ARTS (based on your movie pack)
+jet_li_wire_fu|matrix_bullet_time,impossible_acrobatics,ancient_martial_arts,modern_action|hong_kong_cinema,wire_work_ballet|traditional_red_gold,modern_steel,action_amber|2
+jet_li_romance_combat|romeo_must_die_style,forbidden_kingdom_magic,cradle_to_grave_urban|romantic_action,urban_fantasy|street_noir,forbidden_magic,urban_neon|2
+
+# CLASSIC GAMING (based on your extensive ROM collection)
+retro_gaming_nostalgia|8bit_pixel_art,chiptune_soundwaves,arcade_cabinet_glow,power_up_collecting|pixel_art_aesthetic,retro_futurism|arcade_neon,8bit_primaries,crt_scan_lines|3
+final_fantasy_retro|16bit_sprites,mode7_airships,midi_orchestras,save_crystal_sanctuaries|16bit_golden_age,JRPG_wonder|snes_palette,mode7_magic,crystal_memories|2
+
+# DOOM MUSIC INFLUENCE (based on your DOOM soundtrack collection)
+doom_metal_hellscape|mars_facility_horror,demon_invasion,shotgun_ballet,heavy_metal_combat|industrial_metal,fps_intensity|mars_red,hell_orange,metal_black|2
+
+# =================================================================
+# GENRE FUSION THEMES (25% total weight) - CREATIVE COMBINATIONS
+# =================================================================
+
+[GENRE_FUSION:25]
+
+# STAR TREK + OTHER UNIVERSES (your mashup idea: "Yoda on Enterprise fighting Daleks")
+star_trek_star_wars|enterprise_bridge_with_jedi,federation_lightsabers,warp_speed_to_tatooine,vulcan_force_users|space_opera_fusion,diplomatic_warriors|federation_blue,jedi_green,empire_gray|3
+star_trek_doctor_who|tardis_materializing_on_enterprise,time_lords_meet_vulcans,sonic_screwdriver_tricorders,daleks_vs_klingons|time_travel_diplomacy,temporal_prime_directive|tardis_blue,federation_gold,time_vortex|3
+star_trek_marvel|thor_visits_enterprise,hulk_in_holodeck,iron_man_starfleet_tech,avengers_first_contact|superhero_space_exploration,heroic_federation|marvel_red,starfleet_blue,asgard_gold|2
+
+# CYBERPUNK COMBINATIONS
+cyberpunk_fantasy|neon_lit_dragons,holographic_wizards,digital_magic_spells,chrome_knights|tech_magic_fusion,electric_mysticism|neon_spectrum,magic_blues,chrome_silver|3
+cyberpunk_western|neon_saloons,robot_cowboys,digital_tumbleweeds,cyber_shootouts|frontier_tech_noir,electric_frontier|desert_neon,cowboy_brass,digital_rust|2
+cyberpunk_medieval|castle_with_neon_moat,digital_knights,holographic_dragons,USB_swords|anachronistic_tech,medieval_future|castle_gray,neon_blues,digital_gold|2
+
+# HORROR CROSSOVERS
+cosmic_horror_trek|cthulhu_in_space,lovecraftian_federation,elder_gods_vs_borg,sanity_failing_starfleet|cosmic_dread,space_madness|void_black,insanity_green,cosmic_purple|2
+zombie_final_fantasy|undead_chocobo,zombie_moogles,necromancer_crystals,apocalypse_airships|fantasy_zombie_horror,magical_undead|decay_green,undead_gray,magic_purple|1
+
+# STEAMPUNK COMBINATIONS  
+steampunk_space|brass_rockets,gear_driven_warp,victorian_astronauts,clockwork_aliens|retro_future_elegance,mechanical_cosmos|brass_gold,steam_white,space_black|2
+steampunk_underwater|submarine_cities,pressure_suit_elegance,mechanical_sea_creatures,brass_atlantis|nautical_victorian,aquatic_machinery|ocean_blue,brass_gold,pressure_silver|2
+
+# =================================================================
+# ATMOSPHERIC THEMES (20% total weight) - WEATHER ENHANCED
+# =================================================================
+
+[ATMOSPHERIC:20]
+
+# STORM PHENOMENA  
+lightning_storm_cities|electrical_storms_over_megacities,tesla_coil_skyscrapers,storm_chaser_vehicles,electromagnetic_aurora|electrical_sublime,storm_chasing_drama|lightning_white,storm_gray,electric_blue|3
+tornado_prairie_gothic|tornado_alley_farmhouse,twister_approaching,storm_cellar_refuge,prairie_desolation|midwest_gothic,weather_horror|tornado_gray,prairie_gold,warning_red|2
+aurora_arctic_magic|northern_lights_dancing,ice_crystal_palaces,aurora_spirits,polar_night_magic|arctic_mysticism,light_phenomena|aurora_spectrum,ice_blue,arctic_white|3
+
+# VOLCANIC LANDSCAPES
+volcanic_crystal_caves|lava_tube_cathedrals,obsidian_formations,geothermal_energy,molten_rivers|geological_sublime,fire_earth_power|lava_orange,obsidian_black,crystal_clear|2
+volcanic_space_colony|mars_terraforming,volcanic_power_generation,lava_tube_habitats,geothermal_cities|sci_fi_geology,planetary_engineering|mars_red,volcanic_orange,colony_white|2
+
+# OCEAN MYSTERIES
+bioluminescent_abyss|deep_sea_creatures_glowing,abyssal_pressure_suits,underwater_cities,phosphorescent_forests|abyssal_wonder,deep_sea_mystery|bioluminescent_blue,abyss_black,phosphor_green|3
+underwater_ruins|atlantis_rediscovered,coral_covered_cities,marine_archaeology,sunken_civilizations|aquatic_archaeology,lost_world_wonder|ocean_blue,coral_orange,ruins_stone|2
+
+# =================================================================
+# ARCHITECTURAL THEMES (10% total weight) - STRUCTURAL FOCUS
+# =================================================================
+
+[ARCHITECTURAL:10]
+
+# IMPOSSIBLE ARCHITECTURE
+escher_space_stations|gravity_defying_corridors,impossible_staircases,recursive_architecture,mathematical_buildings|geometric_impossibility,architectural_paradox|geometric_white,impossible_gray,paradox_blue|2
+fractal_cities|self_similar_buildings,mathematical_metropolis,recursive_urban_planning,infinite_zoom_architecture|mathematical_beauty,fractal_geometry|fractal_spectrum,mathematical_gold,infinite_blue|2
+
+# FUTURISTIC STRUCTURES
+art_deco_space_cities|1920s_space_elegance,geometric_space_stations,luxurious_cosmic_architecture,retro_future_glamour|art_deco_futurism,gatsby_in_space|deco_gold,space_black,glamour_silver|2
+crystal_megastructures|living_crystal_cities,resonant_architecture,harmonic_buildings,prismatic_spires|crystalline_future,resonant_beauty|crystal_spectrum,harmonic_white,prismatic_rainbow|2
+
+# =================================================================
+# TEMPORAL THEMES (8% total weight) - TIME PERIOD MASHUPS
+# =================================================================
+
+[TEMPORAL:8]
+
+# TIME PERIOD FUSIONS
+victorian_cyberpunk|steam_powered_computers,brass_neural_interfaces,top_hat_hackers,clockwork_AI|retrofuture_elegance,steampunk_cyber|victorian_brass,cyber_neon,steam_white|2
+medieval_space_age|knights_in_space_armor,castle_starships,dragon_shaped_fighters,quest_across_galaxy|fantasy_space_opera,knightly_cosmos|medieval_steel,space_black,quest_gold|2
+prehistoric_future|dinosaur_cybernetics,caveman_robots,stone_age_technology,primitive_AI|anachronistic_evolution,prehistoric_tech|stone_gray,primitive_brown,evolution_green|1
+
+# =================================================================
+# ABSTRACT CHAOS (5% total weight) - PURE CREATIVE WILDNESS
+# =================================================================
+
+[ABSTRACT_CHAOS:5]
+
+# SURREAL COMBINATIONS
+yoda_enterprise_daleks|jedi_master_on_starfleet_bridge_fighting_pepper_pot_robots,force_vs_extermination|maximum_franchise_chaos,beloved_character_team_up|jedi_green,federation_blue,dalek_bronze|2
+mandalorian_snakes_jackson|beskar_armor_mandalorian_teams_with_samuel_l_jackson_fighting_interdimensional_serpents|action_hero_team_up,snake_fighting_badass|mandalorian_silver,jackson_purple,snake_green|1
+fractal_emotions|mathematical_feelings_creating_geometric_landscapes,emotional_equations,synesthetic_mathematics|abstract_psychology,emotional_geometry|synesthetic_spectrum,emotion_rainbow,mathematical_gold|1
+
+# =================================================================
+# EXPERIMENTAL ZONE (2% total weight) - PURE CHAOS MODE
+# =================================================================
+
+[EXPERIMENTAL:2]
+
+# RANDOM GENERATORS (these will pick random elements from other categories)
+chaos_mashup_maximum|{random_star_trek_element},{random_marvel_element},{random_final_fantasy_element},{random_weather_element}|maximum_creative_chaos,experimental_fusion|chaotic_rainbow_spectrum,random_palette_generation|1
+deepseek_creative_freedom|let_deepseek_choose_all_elements_completely_randomly_but_keep_it_amazing|pure_ai_creativity,unlimited_imagination|deepseek_choice_spectrum,ai_selected_palette|1
+
+# =================================================================
+# MUSIC-INFLUENCED THEMES (Based on your music collection)  
+# =================================================================
+
+[MUSIC_ATMOSPHERE:5]
+
+# METAL THEMES (based on your Immortal Technique, DOOM soundtrack)
+heavy_metal_hellscape|guitar_solo_lightning,drum_blast_explosions,bass_drop_earthquakes,metal_concert_apocalypse|industrial_metal_aesthetic,concert_energy|metal_black,lightning_white,amp_orange|1
+underground_hip_hop|urban_poetry_graffiti,revolutionary_murals,city_beats_visualization,conscious_rap_energy|street_art_aesthetic,urban_poetry|graffiti_spectrum,urban_gray,revolutionary_red|1
+
+# CLASSIC ROCK (based on your Queen, Pink Floyd, Muse collection)
+pink_floyd_spacetime|dark_side_of_moon_prisms,wish_you_were_here_longing,wall_psychological_barriers,psychedelic_space_travel|psychedelic_progressive,conceptual_album_visual|floyd_prism_spectrum,dark_side_gray,psychedelic_swirl|1
+queen_royal_rock|bohemian_rhapsody_opera,we_will_rock_you_stadium,freddie_mercury_majesty,radio_gaga_transmission|theatrical_rock_opera,stadium_grandeur|queen_gold,bohemian_purple,mercury_white|1
+muse_dystopian_rock|uprising_revolution,knights_of_cydonia_western,supermassive_black_hole,resistance_themes|progressive_dystopia,space_rock_opera|muse_blue,uprising_red,black_hole_void|1
+
+# =================================================================
+# SEASONAL/WEATHER INTEGRATIONS
+# =================================================================
+# Note: All themes above will be modified by current weather conditions
+# Current weather context will be injected as: {weather_condition}_{weather_mood}
+# Examples: "rainy_cozy", "sunny_energetic", "stormy_dramatic", "snowy_peaceful"

@@ -1,6 +1,6 @@
-# Real-ESRGAN Installation Guide
+# Real-ESRGAN Installation
 
-Real-ESRGAN is REQUIRED for ultra-high-quality 4K upscaling. The script will NOT work without it.
+Real-ESRGAN is required for 4K upscaling.
 
 ## Installation Steps
 
@@ -38,16 +38,12 @@ The script looks for Real-ESRGAN in these locations:
 - `~/Real-ESRGAN/inference_realesrgan.py`
 - `/usr/local/bin/realesrgan-ncnn-vulkan`
 
-## NO FALLBACK
+If Real-ESRGAN is not found, the script will fail.
 
-If Real-ESRGAN is not found, the script will FAIL with clear error messages.
-This is intentional - we want maximum quality or nothing.
+## GPU Settings
 
-## RTX 3090 Settings
-
-The script uses these optimal settings for your RTX 3090:
-- Model: RealESRGAN_x4plus (highest quality)
-- Tile size: 1024 pixels (maximum for 24GB VRAM)
-- Precision: fp32 (maximum quality)
+Default settings:
+- Model: RealESRGAN_x4plus
+- Tile size: 1024 pixels
+- Precision: fp32
 - Scale: 2x (1920x1080 → 3840x2160)
-- Face enhancement: Enabled
