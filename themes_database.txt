@@ -6,7 +6,7 @@
 # LOCAL MEDIA THEMES (30% total weight) - YOUR ACTUAL COLLECTION
 # =================================================================
 
-[LOCAL_MEDIA:30]
+[LOCAL_MEDIA:10]
 
 # STAR TREK UNIVERSE (based on your Lower Decks, Strange New Worlds, massive book collection)
 star_trek_lower_decks|cerritos_ship_bridge,ensign_antics,starfleet_comedy,alien_encounters|animated_comedy_style,optimistic_trek|federation_blue,starfleet_gold,cosmic_purples|3
@@ -52,7 +52,7 @@ doom_metal_hellscape|mars_facility_horror,demon_invasion,shotgun_ballet,heavy_me
 # GENRE FUSION THEMES (25% total weight) - CREATIVE COMBINATIONS
 # =================================================================
 
-[GENRE_FUSION:25]
+[GENRE_FUSION:15]
 
 # STAR TREK + OTHER UNIVERSES (your mashup idea: "Yoda on Enterprise fighting Daleks")
 star_trek_star_wars|enterprise_bridge_with_jedi,federation_lightsabers,warp_speed_to_tatooine,vulcan_force_users|space_opera_fusion,diplomatic_warriors|federation_blue,jedi_green,empire_gray|3
@@ -76,7 +76,7 @@ steampunk_underwater|submarine_cities,pressure_suit_elegance,mechanical_sea_crea
 # ATMOSPHERIC THEMES (20% total weight) - WEATHER ENHANCED
 # =================================================================
 
-[ATMOSPHERIC:20]
+[ATMOSPHERIC:15]
 
 # STORM PHENOMENA  
 lightning_storm_cities|electrical_storms_over_megacities,tesla_coil_skyscrapers,storm_chaser_vehicles,electromagnetic_aurora|electrical_sublime,storm_chasing_drama|lightning_white,storm_gray,electric_blue|3
@@ -109,7 +109,7 @@ crystal_megastructures|living_crystal_cities,resonant_architecture,harmonic_buil
 # TEMPORAL THEMES (8% total weight) - TIME PERIOD MASHUPS
 # =================================================================
 
-[TEMPORAL:8]
+[TEMPORAL:15]
 
 # TIME PERIOD FUSIONS
 victorian_cyberpunk|steam_powered_computers,brass_neural_interfaces,top_hat_hackers,clockwork_AI|retrofuture_elegance,steampunk_cyber|victorian_brass,cyber_neon,steam_white|2
@@ -120,7 +120,7 @@ prehistoric_future|dinosaur_cybernetics,caveman_robots,stone_age_technology,prim
 # ABSTRACT CHAOS (5% total weight) - PURE CREATIVE WILDNESS
 # =================================================================
 
-[ABSTRACT_CHAOS:5]
+[ABSTRACT_CHAOS:12]
 
 # SURREAL COMBINATIONS
 yoda_enterprise_daleks|jedi_master_on_starfleet_bridge_fighting_pepper_pot_robots,force_vs_extermination|maximum_franchise_chaos,beloved_character_team_up|jedi_green,federation_blue,dalek_bronze|2
@@ -131,7 +131,7 @@ fractal_emotions|mathematical_feelings_creating_geometric_landscapes,emotional_e
 # EXPERIMENTAL ZONE (2% total weight) - PURE CHAOS MODE
 # =================================================================
 
-[EXPERIMENTAL:2]
+[EXPERIMENTAL:10]
 
 # RANDOM GENERATORS (these will pick random elements from other categories)
 chaos_mashup_maximum|{random_star_trek_element},{random_marvel_element},{random_final_fantasy_element},{random_weather_element}|maximum_creative_chaos,experimental_fusion|chaotic_rainbow_spectrum,random_palette_generation|1
@@ -141,7 +141,7 @@ deepseek_creative_freedom|let_deepseek_choose_all_elements_completely_randomly_b
 # MUSIC-INFLUENCED THEMES (Based on your music collection)  
 # =================================================================
 
-[MUSIC_ATMOSPHERE:5]
+[MUSIC_ATMOSPHERE:8]
 
 # METAL THEMES (based on your Immortal Technique, DOOM soundtrack)
 heavy_metal_hellscape|guitar_solo_lightning,drum_blast_explosions,bass_drop_earthquakes,metal_concert_apocalypse|industrial_metal_aesthetic,concert_energy|metal_black,lightning_white,amp_orange|1
@@ -151,6 +151,16 @@ underground_hip_hop|urban_poetry_graffiti,revolutionary_murals,city_beats_visual
 pink_floyd_spacetime|dark_side_of_moon_prisms,wish_you_were_here_longing,wall_psychological_barriers,psychedelic_space_travel|psychedelic_progressive,conceptual_album_visual|floyd_prism_spectrum,dark_side_gray,psychedelic_swirl|1
 queen_royal_rock|bohemian_rhapsody_opera,we_will_rock_you_stadium,freddie_mercury_majesty,radio_gaga_transmission|theatrical_rock_opera,stadium_grandeur|queen_gold,bohemian_purple,mercury_white|1
 muse_dystopian_rock|uprising_revolution,knights_of_cydonia_western,supermassive_black_hole,resistance_themes|progressive_dystopia,space_rock_opera|muse_blue,uprising_red,black_hole_void|1
+
+# =================================================================
+# OTHER MOTHERFUCKIN SHIT
+# =================================================================
+
+[OTHER_SHIT:5]
+
+# PSYCHOTIC
+cosmic_horror|cthulu,monstrous,monster,alien,insane_creature,insane_creatures,horrible_monster,giant_scary_monster|universe_monster,galactic_evil,creepy_space,creepy_dark_planet,living_world_horror_monster,deadly_horror,bloody_galaxy,horror_galaxy,galactic_horror|space_black,purple_horror,bloody_red,deadly_green|1
+insane|completely_insane,discordia,hail_eris,five_fingered_hand_of_eris,law_of_fives,golden_apple,kallisti|golden_apple_kallisti,bonkers,mind_blowing_insanity,chaos,chaotic_insanity,mindblowing_chaos|all_colors|1
 
 # =================================================================
 # SEASONAL/WEATHER INTEGRATIONS

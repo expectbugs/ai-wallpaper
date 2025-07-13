@@ -153,3 +153,33 @@
 - Weather cache self-healing on corruption
 - Unlimited Ollama startup wait time
 - Robust cron setup with proper validation
+
+---
+
+## [3.0.0] - 2025-07-13
+
+### Changed
+- Replaced FLUX-Dev with OpenAI GPT-Image-1
+- Two-branch architecture: Responses API and Direct API
+- Eliminated DeepSeek from Responses API branch
+- Direct GPT-4o integration for intelligent image generation
+
+### Added
+- `daily_wallpaper_gpt.py` - GPT-4o → GPT-Image-1 via Responses API
+- `daily_wallpaper_gpt2.py` - Direct GPT-Image-1 API calls
+- Organization verification handling
+- Base64 image data processing
+- Comprehensive context feeding to GPT-4o
+- 3-minute API timeouts for high-quality generation
+
+### Removed
+- FLUX-Dev pipeline
+- Ollama dependencies (Responses API branch)
+- DeepSeek prompt generation (Responses API branch)
+- Complex local model management
+
+### Enhanced
+- Generation speed (minutes vs 17+ minutes)
+- Image quality via OpenAI's latest model
+- Context intelligence through GPT-4o
+- Theme and weather integration
