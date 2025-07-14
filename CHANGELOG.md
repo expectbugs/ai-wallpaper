@@ -221,3 +221,16 @@
 - Original script functionality preserved
 - No fallbacks, fail-loud philosophy
 - All quality settings at maximum
+
+---
+
+## [4.0.1] - 2025-07-14
+
+### Fixed
+- Theme override functionality (--theme flag now works correctly)
+- Seed display using wrong logging level (critical → info)
+- Theme selection logic properly respects forced theme parameter
+
+### Enhanced
+- Theme lookup system with find_theme_by_name() function
+- Theme override validation with proper error handling

@@ -251,6 +251,33 @@ Focus on photorealistic quality with rich detail and perfect composition.
             instruction += "\nCHAOS MODE: Blend these wildly different elements into a cohesive, surreal masterpiece!"
             
         return instruction.strip()
+        
+    def find_theme_by_name(self, theme_name: str) -> Optional[Dict[str, Any]]:
+        """Find a specific theme by name across all categories
+        
+        Args:
+            theme_name: Name of the theme to find
+            
+        Returns:
+            Theme dictionary if found, None otherwise
+        """
+        for category_name, category in self.themes.items():
+            for current_theme_name, theme_data in category['themes'].items():
+                if current_theme_name == theme_name:
+                    # Build theme object same way as _select_theme_from_category
+                    theme = {
+                        'name': theme_data.get('name', current_theme_name),
+                        'elements': theme_data.get('elements', []),
+                        'styles': theme_data.get('styles', []),
+                        'colors': theme_data.get('colors', []),
+                        'weight': theme_data.get('weight', 1),
+                        'category': category_name
+                    }
+                    self.logger.info(f"Found theme '{theme_name}' in category '{category_name}'")
+                    return theme
+                    
+        self.logger.error(f"Theme '{theme_name}' not found in any category")
+        return None
 
 # Global instance
 _theme_selector: Optional[ThemeSelector] = None
@@ -268,3 +295,17 @@ def get_random_theme_with_weather(weather_context: Dict[str, Any]) -> Dict[str, 
     if _theme_selector is None:
         _theme_selector = ThemeSelector()
     return _theme_selector.get_random_theme_with_weather(weather_context)
+
+def get_theme_by_name(theme_name: str) -> Optional[Dict[str, Any]]:
+    """Get a specific theme by name
+    
+    Args:
+        theme_name: Name of the theme to find
+        
+    Returns:
+        Theme dictionary if found, None otherwise
+    """
+    global _theme_selector
+    if _theme_selector is None:
+        _theme_selector = ThemeSelector()
+    return _theme_selector.find_theme_by_name(theme_name)

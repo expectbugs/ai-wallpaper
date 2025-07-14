@@ -12,7 +12,7 @@ from datetime import datetime
 
 from ..core import get_logger, get_config, get_weather_context, set_wallpaper
 from ..core.exceptions import AIWallpaperError, GenerationError
-from ..prompt import DeepSeekPrompter, get_random_theme_with_weather
+from ..prompt import DeepSeekPrompter, get_random_theme_with_weather, get_theme_by_name
 
 class GenerateCommand:
     """Handles the wallpaper generation workflow"""
@@ -249,12 +249,19 @@ class GenerateCommand:
         # Get weather context
         weather = get_weather_context()
         
-        # Get theme
-        theme_result = get_random_theme_with_weather(weather)
-        
+        # Get theme - either forced or random
         if theme:
-            self.logger.info(f"Overriding with forced theme: {theme}")
-            # TODO: Implement theme override
+            self.logger.info(f"Using forced theme: {theme}")
+            theme_data = get_theme_by_name(theme)
+            if not theme_data:
+                raise GenerationError("theme", "lookup", 
+                    ValueError(f"Theme '{theme}' not found in any category"))
+            theme_result = {
+                'theme': theme_data,
+                'category': theme_data.get('category', 'UNKNOWN')
+            }
+        else:
+            theme_result = get_random_theme_with_weather(weather)
             
         # Try model's optimal prompt method first
         prompt = model_instance.get_optimal_prompt(
@@ -381,7 +388,7 @@ class GenerateCommand:
         Args:
             seed: Generation seed
         """
-        self.logger.critical(f"""
+        self.logger.info(f"""
 ╔═══════════════════════════════════════════╗
 ║       GENERATION SUCCESSFUL!              ║
 ║                                           ║
