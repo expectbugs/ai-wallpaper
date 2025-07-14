@@ -183,3 +183,41 @@
 - Image quality via OpenAI's latest model
 - Context intelligence through GPT-4o
 - Theme and weather integration
+
+---
+
+## [4.0.0] - 2025-07-14
+
+### Refactored
+- Complete modular architecture with unified CLI
+- Configuration-driven design (YAML files)
+- Centralized resource management
+- Model-agnostic pipeline system
+
+### Added
+- `ai-wallpaper` executable with Click CLI
+- Support for all models: FLUX, DALL-E 3, GPT-Image-1, SDXL
+- System configuration (venv paths, coordinates, settings)
+- Intermediate stage saving capability
+- Prominent seed display for reproducibility
+- Environment variable expansion in configs
+- Centralized upscaler integration
+
+### Enhanced
+- Weather coordinates now configurable
+- Ollama path configurable 
+- Prompt history path configurable
+- All hardcoded paths moved to configuration
+- Unified logging with VRAM monitoring
+- Fail-loud error handling throughout
+
+### Fixed
+- Prompt word limit enforcement (removed truncation)
+- Token limit warnings (FLUX uses T5, not CLIP)
+- Full pipeline execution without failures
+- Proper seed handling and display
+
+### Maintained
+- Original script functionality preserved
+- No fallbacks, fail-loud philosophy
+- All quality settings at maximum

@@ -1,0 +1,44 @@
+# AI Wallpaper System Paths Configuration
+# All paths are absolute to avoid any confusion
+
+# Base directories
+project_root: /home/user/ai-wallpaper
+logs_dir: /home/user/ai-wallpaper/logs
+images_dir: /home/user/ai-wallpaper/images
+cache_dir: /home/user/ai-wallpaper/.cache
+
+# History and tracking files
+prompt_history: /home/user/ai-wallpaper/prompt_history.txt
+last_run_file: /home/user/ai-wallpaper/last_run.txt
+
+# Theme database
+theme_database: /home/user/ai-wallpaper/themes_database.txt
+
+# Weather cache
+weather_cache_dir: /home/user/ai-wallpaper/.weather_cache
+
+# Model paths
+models:
+  flux:
+    primary_paths:
+      - /home/user/.cache/huggingface/hub/models--black-forest-labs--FLUX.1-dev/snapshots/0ef5fff789c832c5c7f4e127f94c8b54bbcced44
+      - /home/user/.cache/huggingface/hub/models--black-forest-labs--FLUX.1-dev
+      - /home/user/Pictures/ai/models/flux
+  
+  # Real-ESRGAN paths
+  real_esrgan:
+    - /home/user/ai-wallpaper/Real-ESRGAN/inference_realesrgan.py
+    - /home/user/Real-ESRGAN/inference_realesrgan.py
+
+# Python environments (for potential future use)
+python_env: /home/user/grace/.venv/bin/python3
+
+# Temporary directories
+temp_dir: /tmp
+
+# Default output paths
+default_output:
+  stage1: /tmp/flux_stage1.png
+  stage2: /tmp/flux_stage2.png
+  final: /tmp/flux_final.png
+  wallpaper: /home/user/Pictures/ai-wallpaper.png

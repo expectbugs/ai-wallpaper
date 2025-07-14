@@ -23,9 +23,9 @@ echo "Cron service is running."
 echo
 
 # Check if script exists and is executable
-if [ ! -x "/home/user/ai-wallpaper/run_daily_wallpaper.sh" ]; then
+if [ ! -x "/home/user/ai-wallpaper/run_ai_wallpaper.sh" ]; then
     echo "ERROR: Wrapper script not found or not executable!"
-    echo "Expected at: /home/user/ai-wallpaper/run_daily_wallpaper.sh"
+    echo "Expected at: /home/user/ai-wallpaper/run_ai_wallpaper.sh"
     exit 1
 fi
 
@@ -36,7 +36,7 @@ echo
 
 # Create the cron entry
 # NO OUTPUT SUPPRESSION - errors will be emailed by cron (fail loud!)
-CRON_ENTRY="0 6 * * * /home/user/ai-wallpaper/run_daily_wallpaper.sh"
+CRON_ENTRY="0 6 * * * /home/user/ai-wallpaper/run_ai_wallpaper.sh"
 
 echo "Proposed cron entry:"
 echo "$CRON_ENTRY"

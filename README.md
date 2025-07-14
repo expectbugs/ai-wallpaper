@@ -1,123 +1,145 @@
 # AI Wallpaper Generator
 
-Automated system that generates desktop wallpapers daily at 6 AM using local language models and image generation.
+Ultra-high-quality 4K wallpaper generation using AI models with weather integration and automated scheduling.
 
 ## Features
 
-- Generates unique wallpapers daily
-- Uses deepseek-r1:14b for prompt generation
-- 8K to 4K supersampling for upscaling
-- Runs daily at 6 AM via cron
-- Tracks history to prevent duplicates
-- Fails immediately on errors
-- Logs all operations
+- **Multiple AI Models**: FLUX.1-dev, DALL-E 3, GPT-Image-1, SDXL with LoRA
+- **8K→4K Pipeline**: Generate at base resolution, upscale to 8K, downsample to perfect 4K
+- **Weather Integration**: Real-time weather data influences artistic themes and moods
+- **Theme System**: 60+ curated themes across 10 categories with chaos mode
+- **Smart Prompting**: DeepSeek-r1:14b generates creative, contextual prompts
+- **Automated Scheduling**: Cron integration for daily wallpaper changes
+- **Desktop Integration**: XFCE4 multi-monitor/workspace support
 
 ## Quick Start
 
-### Manual Generation
-Generate a new wallpaper right now:
+1. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Set Up Real-ESRGAN** (required for FLUX):
+   ```bash
+   git clone https://github.com/xinntao/Real-ESRGAN.git
+   cd Real-ESRGAN
+   pip install basicsr facexlib gfpgan -r requirements.txt
+   python setup.py develop
+   wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P weights
+   ```
+
+3. **Configure API Keys** (for DALL-E/GPT models):
+   ```bash
+   export OPENAI_API_KEY="your-key-here"
+   ```
+
+4. **Generate Wallpaper**:
+   ```bash
+   ./ai-wallpaper generate
+   ```
+
+## Usage
+
 ```bash
-cd /home/user/ai-wallpaper
-python3 daily_wallpaper.py --run-now
+# Generate with default model (FLUX)
+./ai-wallpaper generate
+
+# Use specific model
+./ai-wallpaper generate --model dalle3
+
+# Random model selection
+./ai-wallpaper generate --random-model
+
+# Save intermediate stages
+./ai-wallpaper generate --save-stages
+
+# Dry run (show plan)
+./ai-wallpaper --dry-run generate
+
+# List available models
+./ai-wallpaper models --list
+
+# Show configuration
+./ai-wallpaper config --show
+
+# Test system
+./ai-wallpaper test
 ```
 
-### Automatic Daily Generation
-Set up 6 AM daily wallpaper generation:
+## Configuration
+
+All settings are in YAML files under `ai_wallpaper/config/`:
+
+- `models.yaml` - Model settings and pipeline configurations
+- `system.yaml` - Python venv, weather coordinates, paths
+- `themes.yaml` - Theme categories and definitions
+- `weather.yaml` - Weather API settings
+- `paths.yaml` - Directory paths
+- `settings.yaml` - Desktop environment settings
+
+## Models
+
+### FLUX.1-dev (Default)
+- **Pipeline**: Generate 1920x1088 → Real-ESRGAN 8K → Lanczos 4K
+- **Quality**: Maximum (100 steps, bfloat16)
+- **Requirements**: 24GB VRAM, Real-ESRGAN
+- **Time**: ~11 minutes
+
+### DALL-E 3
+- **Pipeline**: API generation → crop → Real-ESRGAN 4x → 4K
+- **Quality**: HD, vivid style
+- **Requirements**: OpenAI API key
+- **Time**: ~2 minutes
+
+### GPT-Image-1
+- **Pipeline**: Direct API or Responses API → crop → upscale
+- **Quality**: High quality
+- **Requirements**: OpenAI API key
+- **Time**: ~3 minutes
+
+### SDXL + LoRA
+- **Pipeline**: Generate 1920x1024 → Real-ESRGAN 2x → 4K
+- **Quality**: LoRA auto-selection by theme
+- **Requirements**: 16GB VRAM
+- **Time**: ~8 minutes
+
+## Scheduling
+
+Set up daily wallpaper generation:
+
 ```bash
-cd /home/user/ai-wallpaper
 ./setup_cron.sh
+```
+
+Runs at 6 AM daily by default. Edit crontab to customize timing.
+
+## Architecture
+
+```
+ai_wallpaper/
+├── cli/          # Click-based command interface
+├── core/         # Configuration, logging, weather, wallpaper
+├── models/       # Model implementations (FLUX, DALL-E, etc.)
+├── prompt/       # DeepSeek prompt generation and theme selection
+├── processing/   # Real-ESRGAN upscaling integration
+├── utils/        # Resource management, file operations
+└── config/       # YAML configuration files
 ```
 
 ## Requirements
 
-- Python 3.12+ with virtual environment at `/home/user/grace/.venv`
-- Ollama with deepseek-r1:14b model installed
-- FLUX.1-dev model
-- Real-ESRGAN installed at `/home/user/ai-wallpaper/Real-ESRGAN/`
-- XFCE4 desktop environment
-- GPU with sufficient VRAM
+- **GPU**: NVIDIA RTX 3090 (24GB) recommended for FLUX
+- **Storage**: 50GB free space
+- **OS**: Linux (XFCE4 desktop environment)
+- **Python**: 3.10+ with virtual environment
 
-## Components
+## Legacy Scripts
 
-### Core Script: `daily_wallpaper.py`
-Main script with all functionality:
-- `--run-now`: Full pipeline (prompt → image → wallpaper)
-- `--test-prompt`: Test prompt generation only
-- `--test-image`: Test image generation only
-- `--test-wallpaper`: Test wallpaper setting only
+The original monolithic scripts are preserved in `legacy/` for reference:
+- `daily_wallpaper.py` - FLUX implementation
+- `daily_wallpaper_dalle.py` - DALL-E 3 implementation  
+- `daily_wallpaper_gpt.py` - GPT-Image-1 implementation
 
-### Cron Automation
-- `run_daily_wallpaper.sh`: Wrapper script for cron execution
-- `setup_cron.sh`: Interactive cron setup
-- `CRON_README.md`: Detailed scheduling documentation
+## License
 
-### Data Files
-- `prompt_history.txt`: All generated prompts
-- `last_run.txt`: Latest execution details
-- `logs/`: Timestamped execution logs
-- `images/`: Generated wallpaper collection
-
-## Process
-
-1. **Prompt Generation** (~2-3 minutes)
-   - Loads previous prompts for uniqueness
-   - Fetches weather data from NWS API
-   - Uses deepseek-r1:14b to create scene description
-   - Considers date, season, weather, and mood
-
-2. **Image Generation** (~17 minutes)
-   - Stage 1: FLUX-Dev generates at 1920x1088 (100 steps, guidance 3.5)
-   - Stage 2: Real-ESRGAN upscales 4x to 7680x4320
-   - Stage 3: Lanczos downsampling to 3840x2160
-   - Saves intermediate files and final wallpaper
-
-3. **Wallpaper Setting** (< 1 second)
-   - Sets wallpaper via xfconf-query
-   - Handles DISPLAY environment
-   - Verifies setting
-
-## Troubleshooting
-
-### Check Latest Run
-```bash
-cat /home/user/ai-wallpaper/last_run.txt
-```
-
-### View Logs
-```bash
-# Latest log
-ls -t /home/user/ai-wallpaper/logs/*.log | head -1 | xargs tail -f
-
-# All logs
-ls -la /home/user/ai-wallpaper/logs/
-```
-
-### Common Issues
-- **No DISPLAY**: Script sets DISPLAY=:0 automatically
-- **Ollama not running**: Script starts it automatically
-- **VRAM issues**: deepseek-r1 unloads before image generation
-- **Memory**: Real-ESRGAN uses tiling for processing
-
-## File Structure
-```
-/home/user/ai-wallpaper/
-├── daily_wallpaper.py      # Main script
-├── run_daily_wallpaper.sh  # Cron wrapper
-├── setup_cron.sh          # Setup helper
-├── README.md              # This file
-├── CHANGELOG.md           # Version history
-├── CRON_README.md         # Scheduling guide
-├── pieinthesky.md        # Design documentation
-├── REAL_ESRGAN_SETUP.md  # Upscaler installation
-├── prompt_history.txt     # Prompt archive
-├── last_run.txt          # Latest status
-├── logs/                 # Execution logs
-└── images/               # Wallpaper gallery
-```
-
-## Technical Details
-
-- **Generation Time**: ~17 minutes
-- **Image Size**: 8-9 MB per wallpaper
-- **Model Parameters**: FLUX.1-dev (12B), deepseek-r1:14b (14B)
-- **Output Resolution**: 3840x2160 (4K)
+Open source - see individual model licenses for restrictions.

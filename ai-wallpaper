@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""
+AI Wallpaper Generator - Main Executable
+Ultra-high-quality 4K wallpaper generation with AI
+"""
+
+import sys
+import os
+import yaml
+
+# Check if we need to re-exec with venv Python
+def check_venv():
+    """Check and switch to configured venv if needed"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(script_dir, 'ai_wallpaper/config/system.yaml')
+    
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+                venv_python = config.get('system', {}).get('python_venv')
+                
+                # Re-exec with venv python if not already using it
+                if venv_python and sys.executable != venv_python and os.path.exists(venv_python):
+                    os.execv(venv_python, [venv_python] + sys.argv)
+        except Exception:
+            # If config loading fails, continue with current Python
+            pass
+
+# Check venv before imports
+check_venv()
+
+# Add the package to Python path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Import and run the CLI
+from ai_wallpaper.cli.main import main
+
+if __name__ == "__main__":
+    main()

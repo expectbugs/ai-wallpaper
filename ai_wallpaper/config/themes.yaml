@@ -1,0 +1,474 @@
+# AI Wallpaper Ultimate Theme Database
+# Categories have weights that determine their selection probability
+# Each theme within a category also has a weight
+
+categories:
+  # Local Media Themes (30% total weight) - Your actual collection
+  LOCAL_MEDIA:
+    weight: 10
+    description: "Themes based on your media collection"
+    themes:
+      star_trek_lower_decks:
+        name: "Star Trek Lower Decks"
+        elements: ["cerritos_ship_bridge", "ensign_antics", "starfleet_comedy", "alien_encounters"]
+        styles: ["animated_comedy_style", "optimistic_trek"]
+        colors: ["federation_blue", "starfleet_gold", "cosmic_purples"]
+        weight: 3
+        
+      star_trek_strange_new_worlds:
+        name: "Star Trek Strange New Worlds"
+        elements: ["enterprise_nx1701", "pike_command", "number_one_efficiency", "spock_logic"]
+        styles: ["modern_trek_aesthetic", "sleek_futurism"]
+        colors: ["enterprise_bridge_blues", "silver_metallics", "warm_amber"]
+        weight: 3
+        
+      star_trek_deep_space_nine:
+        name: "Star Trek Deep Space Nine"
+        elements: ["terok_nor_station", "wormhole_phenomena", "bajoran_mysteries", "dominion_war"]
+        styles: ["darker_trek_themes", "complex_politics"]
+        colors: ["cardassian_grays", "bajoran_reds", "prophetic_golds"]
+        weight: 2
+        
+      star_trek_next_generation:
+        name: "Star Trek Next Generation"
+        elements: ["galaxy_class_enterprise", "picard_diplomacy", "data_positronics", "holodeck_adventures"]
+        styles: ["classic_trek_elegance", "diplomatic_grandeur"]
+        colors: ["tng_command_red", "science_teal", "operations_gold"]
+        weight: 3
+        
+      star_trek_voyager:
+        name: "Star Trek Voyager"
+        elements: ["lost_in_delta_quadrant", "janeway_determination", "borg_encounters", "seven_of_nine"]
+        styles: ["frontier_exploration", "borg_gothic"]
+        colors: ["voyager_grays", "delta_blues", "borg_greens"]
+        weight: 2
+        
+      marvel_avengers_assemble:
+        name: "Marvel Avengers Assemble"
+        elements: ["superhero_team_formation", "infinity_stones", "thanos_threat", "heroic_sacrifice"]
+        styles: ["cinematic_superhero", "epic_battles"]
+        colors: ["heroic_primaries", "cosmic_purples", "infinity_rainbow"]
+        weight: 4
+        
+      marvel_guardians_galaxy:
+        name: "Marvel Guardians of the Galaxy"
+        elements: ["cosmic_outlaws", "groot_majesty", "rocket_engineering", "starlord_mixtapes"]
+        styles: ["space_opera_comedy", "retro_cosmic"]
+        colors: ["guardian_orange", "cosmic_blues", "nova_yellows"]
+        weight: 3
+        
+      marvel_thor_asgard:
+        name: "Marvel Thor Asgard"
+        elements: ["norse_mythology_meets_science", "rainbow_bridge", "mjolnir_lightning", "loki_mischief"]
+        styles: ["mythological_epic", "godly_grandeur"]
+        colors: ["asgardian_gold", "bifrost_spectrum", "lightning_whites"]
+        weight: 3
+        
+      marvel_iron_man_tech:
+        name: "Marvel Iron Man Tech"
+        elements: ["arc_reactor_technology", "stark_tower", "repulsors_blazing", "AI_assistance"]
+        styles: ["sleek_tech_noir", "mechanical_precision"]
+        colors: ["stark_red_gold", "arc_reactor_blue", "metallic_chrome"]
+        weight: 3
+        
+      marvel_cosmic_entities:
+        name: "Marvel Cosmic Entities"
+        elements: ["celestials_emerging", "infinity_gauntlet", "quantum_realm", "multiverse_chaos"]
+        styles: ["cosmic_horror_meets_heroism", "reality_bending"]
+        colors: ["cosmic_purples", "infinity_golds", "quantum_silvers"]
+        weight: 2
+        
+      doctor_who_tardis:
+        name: "Doctor Who TARDIS"
+        elements: ["time_vortex_spinning", "gallifreyan_architecture", "sonic_screwdriver", "temporal_paradox"]
+        styles: ["whimsical_time_travel", "british_sci_fi"]
+        colors: ["tardis_blue", "gallifreyan_gold", "vortex_spirals"]
+        weight: 3
+        
+      doctor_who_daleks:
+        name: "Doctor Who Daleks"
+        elements: ["exterminate_chanting", "skaro_wasteland", "dalek_empire", "time_war_echoes"]
+        styles: ["mechanical_horror", "pepper_pot_terror"]
+        colors: ["dalek_bronze", "skaro_reds", "extermination_lights"]
+        weight: 2
+        
+      doctor_who_cybermen:
+        name: "Doctor Who Cybermen"
+        elements: ["cybermen_marching", "mondas_conversion", "delete_protocols", "steel_plague"]
+        styles: ["body_horror_tech", "emotional_deletion"]
+        colors: ["cyberman_silver", "conversion_blues", "deletion_grays"]
+        weight: 2
+        
+      black_mirror_tech_horror:
+        name: "Black Mirror Tech Horror"
+        elements: ["social_media_nightmare", "rating_systems", "digital_consciousness", "memory_manipulation"]
+        styles: ["dystopian_tech_noir", "psychological_horror"]
+        colors: ["screen_blue_glow", "digital_grays", "warning_reds"]
+        weight: 2
+        
+      black_mirror_virtual_reality:
+        name: "Black Mirror Virtual Reality"
+        elements: ["san_junipero_heaven", "cookie_consciousness", "dating_apps_hell", "VR_addiction"]
+        styles: ["digital_surrealism", "tech_anxiety"]
+        colors: ["virtual_neon", "consciousness_white", "digital_decay"]
+        weight: 2
+        
+      final_fantasy_vii:
+        name: "Final Fantasy VII"
+        elements: ["midgar_city_plates", "mako_reactor_glow", "cloud_strife_buster_sword", "sephiroth_wing"]
+        styles: ["anime_cinematic", "steampunk_fantasy"]
+        colors: ["mako_green", "midgar_industrial", "sephiroth_silver"]
+        weight: 4
+        
+      final_fantasy_ix:
+        name: "Final Fantasy IX"
+        elements: ["alexandria_castle", "black_mage_magic", "airship_adventures", "crystal_memories"]
+        styles: ["whimsical_fantasy", "medieval_charm"]
+        colors: ["crystal_blues", "alexandria_purples", "moogle_whites"]
+        weight: 3
+        
+      final_fantasy_tactics:
+        name: "Final Fantasy Tactics"
+        elements: ["ivalice_politics", "job_class_warfare", "ramza_determination", "delita_ambition"]
+        styles: ["tactical_medieval", "political_intrigue"]
+        colors: ["tactics_browns", "noble_purples", "war_crimsons"]
+        weight: 2
+        
+      final_fantasy_cosmic:
+        name: "Final Fantasy Cosmic"
+        elements: ["bahamut_summons", "chocobo_racing", "esper_worlds", "crystal_prophecies"]
+        styles: ["high_fantasy_magic", "summon_spectacle"]
+        colors: ["crystal_rainbow", "esper_ethereal", "bahamut_majesty"]
+        weight: 3
+        
+      jet_li_wire_fu:
+        name: "Jet Li Wire Fu"
+        elements: ["matrix_bullet_time", "impossible_acrobatics", "ancient_martial_arts", "modern_action"]
+        styles: ["hong_kong_cinema", "wire_work_ballet"]
+        colors: ["traditional_red_gold", "modern_steel", "action_amber"]
+        weight: 2
+        
+      jet_li_romance_combat:
+        name: "Jet Li Romance Combat"
+        elements: ["romeo_must_die_style", "forbidden_kingdom_magic", "cradle_to_grave_urban"]
+        styles: ["romantic_action", "urban_fantasy"]
+        colors: ["street_noir", "forbidden_magic", "urban_neon"]
+        weight: 2
+        
+      retro_gaming_nostalgia:
+        name: "Retro Gaming Nostalgia"
+        elements: ["8bit_pixel_art", "chiptune_soundwaves", "arcade_cabinet_glow", "power_up_collecting"]
+        styles: ["pixel_art_aesthetic", "retro_futurism"]
+        colors: ["arcade_neon", "8bit_primaries", "crt_scan_lines"]
+        weight: 3
+        
+      final_fantasy_retro:
+        name: "Final Fantasy Retro"
+        elements: ["16bit_sprites", "mode7_airships", "midi_orchestras", "save_crystal_sanctuaries"]
+        styles: ["16bit_golden_age", "JRPG_wonder"]
+        colors: ["snes_palette", "mode7_magic", "crystal_memories"]
+        weight: 2
+        
+      doom_metal_hellscape:
+        name: "DOOM Metal Hellscape"
+        elements: ["mars_facility_horror", "demon_invasion", "shotgun_ballet", "heavy_metal_combat"]
+        styles: ["industrial_metal", "fps_intensity"]
+        colors: ["mars_red", "hell_orange", "metal_black"]
+        weight: 2
+
+  # Genre Fusion Themes (25% total weight) - Creative combinations
+  GENRE_FUSION:
+    weight: 15
+    description: "Creative mashups of different universes"
+    themes:
+      star_trek_star_wars:
+        name: "Star Trek meets Star Wars"
+        elements: ["enterprise_bridge_with_jedi", "federation_lightsabers", "warp_speed_to_tatooine", "vulcan_force_users"]
+        styles: ["space_opera_fusion", "diplomatic_warriors"]
+        colors: ["federation_blue", "jedi_green", "empire_gray"]
+        weight: 3
+        
+      star_trek_doctor_who:
+        name: "Star Trek meets Doctor Who"
+        elements: ["tardis_materializing_on_enterprise", "time_lords_meet_vulcans", "sonic_screwdriver_tricorders", "daleks_vs_klingons"]
+        styles: ["time_travel_diplomacy", "temporal_prime_directive"]
+        colors: ["tardis_blue", "federation_gold", "time_vortex"]
+        weight: 3
+        
+      star_trek_marvel:
+        name: "Star Trek meets Marvel"
+        elements: ["thor_visits_enterprise", "hulk_in_holodeck", "iron_man_starfleet_tech", "avengers_first_contact"]
+        styles: ["superhero_space_exploration", "heroic_federation"]
+        colors: ["marvel_red", "starfleet_blue", "asgard_gold"]
+        weight: 2
+        
+      cyberpunk_fantasy:
+        name: "Cyberpunk Fantasy"
+        elements: ["neon_lit_dragons", "holographic_wizards", "digital_magic_spells", "chrome_knights"]
+        styles: ["tech_magic_fusion", "electric_mysticism"]
+        colors: ["neon_spectrum", "magic_blues", "chrome_silver"]
+        weight: 3
+        
+      cyberpunk_western:
+        name: "Cyberpunk Western"
+        elements: ["neon_saloons", "robot_cowboys", "digital_tumbleweeds", "cyber_shootouts"]
+        styles: ["frontier_tech_noir", "electric_frontier"]
+        colors: ["desert_neon", "cowboy_brass", "digital_rust"]
+        weight: 2
+        
+      cyberpunk_medieval:
+        name: "Cyberpunk Medieval"
+        elements: ["castle_with_neon_moat", "digital_knights", "holographic_dragons", "USB_swords"]
+        styles: ["anachronistic_tech", "medieval_future"]
+        colors: ["castle_gray", "neon_blues", "digital_gold"]
+        weight: 2
+        
+      cosmic_horror_trek:
+        name: "Cosmic Horror Trek"
+        elements: ["cthulhu_in_space", "lovecraftian_federation", "elder_gods_vs_borg", "sanity_failing_starfleet"]
+        styles: ["cosmic_dread", "space_madness"]
+        colors: ["void_black", "insanity_green", "cosmic_purple"]
+        weight: 2
+        
+      zombie_final_fantasy:
+        name: "Zombie Final Fantasy"
+        elements: ["undead_chocobo", "zombie_moogles", "necromancer_crystals", "apocalypse_airships"]
+        styles: ["fantasy_zombie_horror", "magical_undead"]
+        colors: ["decay_green", "undead_gray", "magic_purple"]
+        weight: 1
+        
+      steampunk_space:
+        name: "Steampunk Space"
+        elements: ["brass_rockets", "gear_driven_warp", "victorian_astronauts", "clockwork_aliens"]
+        styles: ["retro_future_elegance", "mechanical_cosmos"]
+        colors: ["brass_gold", "steam_white", "space_black"]
+        weight: 2
+        
+      steampunk_underwater:
+        name: "Steampunk Underwater"
+        elements: ["submarine_cities", "pressure_suit_elegance", "mechanical_sea_creatures", "brass_atlantis"]
+        styles: ["nautical_victorian", "aquatic_machinery"]
+        colors: ["ocean_blue", "brass_gold", "pressure_silver"]
+        weight: 2
+
+  # Atmospheric Themes (20% total weight) - Weather Enhanced
+  ATMOSPHERIC:
+    weight: 15
+    description: "Weather and atmospheric phenomena"
+    themes:
+      lightning_storm_cities:
+        name: "Lightning Storm Cities"
+        elements: ["electrical_storms_over_megacities", "tesla_coil_skyscrapers", "storm_chaser_vehicles", "electromagnetic_aurora"]
+        styles: ["electrical_sublime", "storm_chasing_drama"]
+        colors: ["lightning_white", "storm_gray", "electric_blue"]
+        weight: 3
+        
+      aurora_arctic_magic:
+        name: "Aurora Arctic Magic"
+        elements: ["northern_lights_dancing", "ice_crystal_palaces", "aurora_spirits", "polar_night_magic"]
+        styles: ["arctic_mysticism", "light_phenomena"]
+        colors: ["aurora_spectrum", "ice_blue", "arctic_white"]
+        weight: 3
+        
+      volcanic_crystal_caves:
+        name: "Volcanic Crystal Caves"
+        elements: ["lava_tube_cathedrals", "obsidian_formations", "geothermal_energy", "molten_rivers"]
+        styles: ["geological_sublime", "fire_earth_power"]
+        colors: ["lava_orange", "obsidian_black", "crystal_clear"]
+        weight: 2
+        
+      bioluminescent_abyss:
+        name: "Bioluminescent Abyss"
+        elements: ["deep_sea_creatures_glowing", "abyssal_pressure_suits", "underwater_cities", "phosphorescent_forests"]
+        styles: ["abyssal_wonder", "deep_sea_mystery"]
+        colors: ["bioluminescent_blue", "abyss_black", "phosphor_green"]
+        weight: 3
+
+  # Space & Cosmic Horror (12% total weight) - Dark Space Anomalies
+  SPACE_COSMIC:
+    weight: 12
+    description: "Space phenomena and cosmic horror"
+    themes:
+      black_hole_event_horizon:
+        name: "Black Hole Event Horizon"
+        elements: ["event_horizon_distortion", "spacetime_warping", "gravitational_lensing", "hawking_radiation"]
+        styles: ["cosmic_horror_realism", "physics_visualization"]
+        colors: ["void_black", "hawking_blue", "distortion_white"]
+        weight: 3
+        
+      neutron_star_magnetosphere:
+        name: "Neutron Star Magnetosphere"
+        elements: ["magnetic_field_lines", "pulsar_beams", "stellar_remnant", "charged_particle_streams"]
+        styles: ["scientific_visualization", "stellar_death"]
+        colors: ["magnetic_blue", "pulsar_white", "neutron_silver"]
+        weight: 2
+        
+      dark_matter_filaments:
+        name: "Dark Matter Filaments"
+        elements: ["invisible_cosmic_web", "galaxy_cluster_connections", "gravitational_scaffolding", "dark_energy_flows"]
+        styles: ["theoretical_physics_art", "cosmic_structure"]
+        colors: ["dark_matter_purple", "web_silver", "cosmic_void"]
+        weight: 2
+        
+      galactic_collision:
+        name: "Galactic Collision"
+        elements: ["andromeda_milky_way_merger", "gravitational_chaos", "stellar_disruption", "cosmic_dance"]
+        styles: ["galactic_scale_drama", "cosmic_collision"]
+        colors: ["collision_orange", "disruption_red", "merger_gold"]
+        weight: 2
+
+  # Architectural Themes (10% total weight) - Structural Focus
+  ARCHITECTURAL:
+    weight: 10
+    description: "Impossible and futuristic architecture"
+    themes:
+      escher_space_stations:
+        name: "Escher Space Stations"
+        elements: ["gravity_defying_corridors", "impossible_staircases", "recursive_architecture", "mathematical_buildings"]
+        styles: ["geometric_impossibility", "architectural_paradox"]
+        colors: ["geometric_white", "impossible_gray", "paradox_blue"]
+        weight: 2
+        
+      fractal_cities:
+        name: "Fractal Cities"
+        elements: ["self_similar_buildings", "mathematical_metropolis", "recursive_urban_planning", "infinite_zoom_architecture"]
+        styles: ["mathematical_beauty", "fractal_geometry"]
+        colors: ["fractal_spectrum", "mathematical_gold", "infinite_blue"]
+        weight: 2
+        
+      art_deco_space_cities:
+        name: "Art Deco Space Cities"
+        elements: ["1920s_space_elegance", "geometric_space_stations", "luxurious_cosmic_architecture", "retro_future_glamour"]
+        styles: ["art_deco_futurism", "gatsby_in_space"]
+        colors: ["deco_gold", "space_black", "glamour_silver"]
+        weight: 2
+        
+      crystal_megastructures:
+        name: "Crystal Megastructures"
+        elements: ["living_crystal_cities", "resonant_architecture", "harmonic_buildings", "prismatic_spires"]
+        styles: ["crystalline_future", "resonant_beauty"]
+        colors: ["crystal_spectrum", "harmonic_white", "prismatic_rainbow"]
+        weight: 2
+
+  # Anime & Manga (15% total weight) - Including One Punch Man
+  ANIME_MANGA:
+    weight: 15
+    description: "Anime and manga inspired themes"
+    themes:
+      saitama_one_punch:
+        name: "Saitama One Punch"
+        elements: ["bald_cape_hero", "overwhelming_power", "grocery_store_sales", "hero_for_hobby"]
+        styles: ["minimalist_hero_comedy", "overpowered_protagonist"]
+        colors: ["hero_yellow", "cape_red", "bald_white"]
+        weight: 3
+        
+      genos_cyborg_destruction:
+        name: "Genos Cyborg Destruction"
+        elements: ["cybernetic_enhancements", "incineration_cannons", "master_devotion", "mechanical_precision"]
+        styles: ["cyborg_action_anime", "technological_power"]
+        colors: ["cyborg_chrome", "incineration_orange", "tech_blue"]
+        weight: 2
+        
+      totoro_forest_magic:
+        name: "Totoro Forest Magic"
+        elements: ["forest_spirits", "childhood_wonder", "acorn_transportation", "nature_harmony"]
+        styles: ["ghibli_whimsy", "environmental_magic"]
+        colors: ["totoro_gray", "forest_green", "magic_blue"]
+        weight: 2
+        
+      dragon_ball_power_levels:
+        name: "Dragon Ball Power Levels"
+        elements: ["ki_energy_auras", "power_scaling_insanity", "tournament_battles", "transformation_sequences"]
+        styles: ["battle_shonen_escalation", "power_fantasy"]
+        colors: ["ki_gold", "aura_blue", "power_white"]
+        weight: 2
+
+  # Temporal Themes (15% total weight) - Time Period Mashups
+  TEMPORAL:
+    weight: 15
+    description: "Time period fusions and anachronisms"
+    themes:
+      victorian_cyberpunk:
+        name: "Victorian Cyberpunk"
+        elements: ["steam_powered_computers", "brass_neural_interfaces", "top_hat_hackers", "clockwork_AI"]
+        styles: ["retrofuture_elegance", "steampunk_cyber"]
+        colors: ["victorian_brass", "cyber_neon", "steam_white"]
+        weight: 2
+        
+      medieval_space_age:
+        name: "Medieval Space Age"
+        elements: ["knights_in_space_armor", "castle_starships", "dragon_shaped_fighters", "quest_across_galaxy"]
+        styles: ["fantasy_space_opera", "knightly_cosmos"]
+        colors: ["medieval_steel", "space_black", "quest_gold"]
+        weight: 2
+        
+      prehistoric_future:
+        name: "Prehistoric Future"
+        elements: ["dinosaur_cybernetics", "caveman_robots", "stone_age_technology", "primitive_AI"]
+        styles: ["anachronistic_evolution", "prehistoric_tech"]
+        colors: ["stone_gray", "primitive_brown", "evolution_green"]
+        weight: 1
+
+  # Abstract Chaos (12% total weight) - Pure Creative Wildness
+  ABSTRACT_CHAOS:
+    weight: 12
+    description: "Surreal combinations and chaos"
+    themes:
+      yoda_enterprise_daleks:
+        name: "Yoda Enterprise Daleks"
+        elements: ["jedi_master_on_starfleet_bridge_fighting_pepper_pot_robots", "force_vs_extermination"]
+        styles: ["maximum_franchise_chaos", "beloved_character_team_up"]
+        colors: ["jedi_green", "federation_blue", "dalek_bronze"]
+        weight: 2
+        
+      mandalorian_snakes_jackson:
+        name: "Mandalorian Snakes Jackson"
+        elements: ["beskar_armor_mandalorian_teams_with_samuel_l_jackson_fighting_interdimensional_serpents"]
+        styles: ["action_hero_team_up", "snake_fighting_badass"]
+        colors: ["mandalorian_silver", "jackson_purple", "snake_green"]
+        weight: 1
+        
+      fractal_emotions:
+        name: "Fractal Emotions"
+        elements: ["mathematical_feelings_creating_geometric_landscapes", "emotional_equations", "synesthetic_mathematics"]
+        styles: ["abstract_psychology", "emotional_geometry"]
+        colors: ["synesthetic_spectrum", "emotion_rainbow", "mathematical_gold"]
+        weight: 1
+
+  # Experimental Zone (10% total weight) - Pure Chaos Mode
+  EXPERIMENTAL:
+    weight: 10
+    description: "Experimental and random themes"
+    themes:
+      chaos_mashup_maximum:
+        name: "Chaos Mashup Maximum"
+        elements: ["random_star_trek_element", "random_marvel_element", "random_final_fantasy_element", "random_weather_element"]
+        styles: ["maximum_creative_chaos", "experimental_fusion"]
+        colors: ["chaotic_rainbow_spectrum", "random_palette_generation"]
+        weight: 1
+        
+      deepseek_creative_freedom:
+        name: "DeepSeek Creative Freedom"
+        elements: ["let_deepseek_choose_all_elements_completely_randomly_but_keep_it_amazing"]
+        styles: ["pure_ai_creativity", "unlimited_imagination"]
+        colors: ["deepseek_choice_spectrum", "ai_selected_palette"]
+        weight: 1
+
+  # Digital & Programming (10% total weight) - Tech & Code Themes
+  DIGITAL_PROGRAMMING:
+    weight: 10
+    description: "Programming and digital art"
+    themes:
+      code_editor_dark_theme:
+        name: "Code Editor Dark Theme"
+        elements: ["syntax_highlighting_colors", "terminal_green_text", "multiple_monitor_setup", "late_night_coding"]
+        styles: ["programmer_aesthetic", "development_environment"]
+        colors: ["syntax_spectrum", "terminal_green", "editor_dark"]
+        weight: 3
+        
+      shader_code_visuals:
+        name: "Shader Code Visuals"
+        elements: ["fragment_shader_mathematics", "vertex_transformations", "gpu_parallel_processing", "real_time_rendering"]
+        styles: ["graphics_programming", "shader_art"]
+        colors: ["shader_purple", "math_gold", "gpu_green"]
+        weight: 1

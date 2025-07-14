@@ -1,0 +1,59 @@
+# Weather Configuration for AI Wallpaper System
+
+# Location settings
+location:
+  name: "Elkhorn, WI"
+  latitude: 42.6728
+  longitude: -88.5443
+
+# API Configuration
+api:
+  base_url: "https://api.weather.gov"
+  endpoints:
+    points: "/points/{lat},{lon}"
+    forecast: "/gridpoints/{office}/{gridX},{gridY}/forecast"
+    forecast_hourly: "/gridpoints/{office}/{gridX},{gridY}/forecast/hourly"
+  
+  # Request settings
+  timeout: 30  # seconds
+  retries: 3
+  user_agent: "AI-Wallpaper-System/2.0 (github.com/ai-wallpaper)"
+
+# Cache settings
+cache:
+  enabled: true
+  directory: /home/user/ai-wallpaper/.weather_cache
+  expiration:
+    grid: 86400      # 24 hours in seconds
+    forecast: 3600   # 1 hour in seconds
+    hourly: 1800     # 30 minutes in seconds
+
+# Weather interpretation
+weather_moods:
+  clear_day: "vibrant"
+  clear_night: "ethereal"
+  partly_cloudy: "dynamic"
+  cloudy: "moody"
+  rain: "melancholic"
+  thunderstorm: "dramatic"
+  snow: "serene"
+  fog: "mysterious"
+  windy: "energetic"
+  default: "neutral"
+
+# Weather keywords for prompts
+weather_keywords:
+  temperature:
+    cold: ["frost", "crystalline", "icy", "frozen"]
+    cool: ["crisp", "fresh", "brisk", "clear"]
+    mild: ["comfortable", "pleasant", "gentle", "soft"]
+    warm: ["golden", "sunny", "bright", "luminous"]
+    hot: ["blazing", "scorching", "radiant", "intense"]
+  
+  conditions:
+    clear: ["pristine", "crystal clear", "unblemished", "pure"]
+    cloudy: ["overcast", "diffused light", "soft shadows", "muted"]
+    rain: ["wet", "glistening", "reflective", "rain-soaked"]
+    storm: ["turbulent", "electric", "powerful", "dynamic"]
+    snow: ["snow-covered", "winter wonderland", "pristine white", "hushed"]
+    fog: ["misty", "ethereal", "shrouded", "dreamlike"]

@@ -1,0 +1,51 @@
+# System Configuration for AI Wallpaper Generator
+# This file contains system-level settings that were previously hardcoded
+
+system:
+  # Python virtual environment path
+  # This is used in the executable shebang
+  python_venv: "/home/user/grace/.venv/bin/python3"
+  
+  # Ollama executable path
+  ollama_path: "/usr/local/bin/ollama"
+  
+  # Fail loud philosophy - DO NOT CHANGE!
+  fail_loud: true
+  
+weather:
+  # Coordinates for weather fetching
+  # Default: Elkhorn, WI
+  latitude: 42.6728
+  longitude: -88.5443
+  
+  # Cache settings
+  cache_dir: "/home/user/ai-wallpaper/.weather_cache"
+  cache_grid_expiration: 86400    # 1 day in seconds
+  cache_forecast_expiration: 900   # 15 minutes in seconds
+  
+  # API delay when rate limited
+  too_many_api_calls_delay: 60    # 1 minute
+  
+  # User agent for weather API
+  weather_agent: "(ai-wallpaper weather, ai-wallpaper@example.com)"
+  weather_accept: "application/geo+json"
+  
+generation:
+  # Whether to save intermediate stage images
+  save_intermediate_stages: false
+  
+  # Directory for intermediate images (relative to images_dir)
+  intermediate_dir: "stages"
+  
+  # Prompt history file
+  prompt_history_file: "/home/user/ai-wallpaper/prompt_history.txt"
+  
+  # Last run information file
+  last_run_file: "/home/user/ai-wallpaper/last_run.txt"
+  
+  # Default seed behavior
+  # Use null for random seed, or set a specific value for reproducibility
+  default_seed: null
+  
+  # Show prominent seed display after generation
+  show_seed_prominently: true

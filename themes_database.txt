@@ -163,7 +163,267 @@ cosmic_horror|cthulu,monstrous,monster,alien,insane_creature,insane_creatures,ho
 insane|completely_insane,discordia,hail_eris,five_fingered_hand_of_eris,law_of_fives,golden_apple,kallisti|golden_apple_kallisti,bonkers,mind_blowing_insanity,chaos,chaotic_insanity,mindblowing_chaos|all_colors|1
 
 # =================================================================
-# SEASONAL/WEATHER INTEGRATIONS
+# SPACE & COSMIC HORROR (12% total weight) - DARK SPACE ANOMALIES  
+# =================================================================
+
+[SPACE_COSMIC:12]
+
+# DARK SPACE PHENOMENA
+black_hole_event_horizon|event_horizon_distortion,spacetime_warping,gravitational_lensing,hawking_radiation|cosmic_horror_realism,physics_visualization|void_black,hawking_blue,distortion_white|3
+neutron_star_magnetosphere|magnetic_field_lines,pulsar_beams,stellar_remnant,charged_particle_streams|scientific_visualization,stellar_death|magnetic_blue,pulsar_white,neutron_silver|2
+dark_nebula_void|light_absorbing_clouds,stellar_nursery_darkness,cosmic_dust_veils,hidden_star_formation|deep_space_mystery,cosmic_darkness|void_black,dust_brown,hidden_red|3
+supernova_remnant|stellar_explosion_aftermath,expanding_shockwaves,neutron_star_birth,cosmic_element_forging|explosive_cosmic_beauty,stellar_lifecycle|supernova_gold,shockwave_blue,remnant_white|2
+
+# COSMIC ANOMALIES & MYSTERIES  
+dark_matter_filaments|invisible_cosmic_web,galaxy_cluster_connections,gravitational_scaffolding,dark_energy_flows|theoretical_physics_art,cosmic_structure|dark_matter_purple,web_silver,cosmic_void|2
+wormhole_spacetime|einstein_rosen_bridge,spacetime_tunnel,exotic_matter_rings,dimensional_gateway|theoretical_physics,space_travel|wormhole_blue,exotic_green,spacetime_white|2
+rogue_planet_wanderer|interstellar_nomad,expelled_world,frozen_atmosphere,no_star_system|lonely_cosmic_wanderer,planetary_exile|rogue_black,frozen_blue,wanderer_gray|1
+galactic_collision|andromeda_milky_way_merger,gravitational_chaos,stellar_disruption,cosmic_dance|galactic_scale_drama,cosmic_collision|collision_orange,disruption_red,merger_gold|2
+
+# =================================================================
+# HORROR & MONSTERS (10% total weight) - CREATURES & HAUNTED THEMES
+# =================================================================
+
+[HORROR_MONSTERS:10]
+
+# CLASSIC HORROR MONSTERS
+vampire_gothic_manor|ancient_bloodsucker,victorian_mansion,crimson_velvet,bat_swarms|gothic_horror_elegance,vampire_aristocracy|blood_red,gothic_black,manor_gold|2
+werewolf_full_moon|lycanthrope_transformation,moonlit_forest,silver_weakness,primal_hunger|werewolf_mythology,lunar_horror|moon_silver,forest_green,transformation_red|2
+zombie_apocalypse_city|undead_hordes,abandoned_cityscape,survival_horror,decaying_civilization|post_apocalyptic_horror,zombie_survival|decay_green,city_gray,apocalypse_red|2
+lovecraftian_tentacles|eldritch_abominations,cosmic_horror_entities,sanity_loss,forbidden_knowledge|cosmic_dread,eldritch_horror|tentacle_green,madness_purple,cosmic_black|2
+
+# HAUNTED ENVIRONMENTS  
+haunted_mansion_victorian|creaking_floorboards,ghostly_apparitions,portrait_eyes_following,candlelit_corridors|victorian_gothic_horror,supernatural_haunting|mansion_gray,ghost_white,candle_amber|2
+abandoned_asylum_decay|rusted_medical_equipment,padded_cells,echoing_screams,institutional_horror|psychological_horror,institutional_decay|asylum_green,rust_brown,decay_gray|1
+cursed_forest_spirits|malevolent_tree_spirits,will_o_wisps,twisted_branches,ancient_curses|forest_horror,spiritual_malevolence|cursed_green,spirit_blue,ancient_brown|1
+
+# =================================================================  
+# ANIME & MANGA (15% total weight) - ONE PUNCH MAN & MORE
+# =================================================================
+
+[ANIME_MANGA:15]
+
+# ONE PUNCH MAN & SAITAMA THEMES
+saitama_one_punch|bald_cape_hero,overwhelming_power,grocery_store_sales,hero_for_hobby|minimalist_hero_comedy,overpowered_protagonist|hero_yellow,cape_red,bald_white|3
+genos_cyborg_destruction|cybernetic_enhancements,incineration_cannons,master_devotion,mechanical_precision|cyborg_action_anime,technological_power|cyborg_chrome,incineration_orange,tech_blue|2
+speed_o_sound_sonic|ninja_assassination_speed,sonic_booms,rivalry_obsession,blade_mastery|ninja_speed_action,assassin_rivalry|sonic_black,speed_blue,blade_silver|2
+monster_association_chaos|dragon_level_threats,hero_hunter_garou,martial_arts_evolution,monster_cells|monster_transformation,martial_evolution|monster_purple,evolution_red,chaos_black|2
+
+# STUDIO GHIBLI AESTHETICS
+totoro_forest_magic|forest_spirits,childhood_wonder,acorn_transportation,nature_harmony|ghibli_whimsy,environmental_magic|totoro_gray,forest_green,magic_blue|2
+spirited_away_bathhouse|spirit_world_architecture,dragon_haku,no_face_mystery,magical_realism|surreal_japanese_folklore,spiritual_journey|spirit_gold,bathhouse_red,mystery_purple|2
+princess_mononoke_war|forest_gods_vs_industry,wolf_princess,iron_town_conflict,nature_vs_progress|environmental_warfare,industrial_vs_natural|mononoke_green,war_red,iron_gray|1
+
+# CLASSIC SHONEN ACTION
+dragon_ball_power_levels|ki_energy_auras,power_scaling_insanity,tournament_battles,transformation_sequences|battle_shonen_escalation,power_fantasy|ki_gold,aura_blue,power_white|2
+naruto_ninja_villages|hidden_leaf_architecture,jutsu_hand_signs,tailed_beast_chakra,hokage_legacy|ninja_village_politics,chakra_manifestation|leaf_green,chakra_blue,hokage_orange|1
+one_piece_grand_line|pirate_adventure,devil_fruit_powers,straw_hat_crew,treasure_hunting|pirate_adventure_comedy,oceanic_journey|straw_hat_red,ocean_blue,adventure_gold|1
+
+# =================================================================
+# AUTOMOTIVE CULTURE (8% total weight) - CARS, BUSES & VEHICLES 
+# =================================================================
+
+[AUTOMOTIVE:8]
+
+# CLASSIC MUSCLE CARS
+dodge_challenger_hellcat|supercharged_v8_power,quarter_mile_strips,tire_smoke_burnouts,american_muscle|classic_american_power,muscle_car_culture|hellcat_orange,tire_black,chrome_silver|2
+ford_mustang_shelby|cobra_snake_badges,racing_stripes,track_day_performance,pony_car_legacy|american_sports_car,racing_heritage|shelby_blue,racing_white,cobra_yellow|2
+chevrolet_camaro_ss|bumblebee_transformation,ls_engine_rumble,drag_strip_domination,bowtie_pride|american_muscle_heritage,transformer_inspiration|camaro_yellow,ss_black,bowtie_gold|1
+
+# ELECTRIC VEHICLE FUTURE
+tesla_cybertruck_angular|stainless_steel_exoskeleton,electric_torque_instant,autopilot_cameras,mars_mission_prep|futuristic_minimalism,electric_revolution|cybertruck_steel,electric_blue,future_white|2
+lucid_air_luxury|glass_roof_panoramic,electric_luxury_sedan,silicon_valley_elegance,sustainable_performance|luxury_electric_refinement,tech_sophistication|lucid_pearl,luxury_cream,tech_blue|1
+
+# HIPPIE BUS COUNTERCULTURE  
+volkswagen_bus_flower_power|peace_signs_painted,tie_dye_interiors,woodstock_memories,freedom_road_trips|60s_counterculture,hippie_aesthetic|tie_dye_rainbow,peace_white,flower_power_spectrum|2
+school_bus_converted_home|tiny_house_conversion,nomadic_lifestyle,instagram_van_life,off_grid_freedom|van_life_culture,nomadic_freedom|school_bus_yellow,conversion_wood,nomad_blue|1
+
+# =================================================================
+# DIGITAL & PROGRAMMING (10% total weight) - TECH & CODE THEMES
+# =================================================================
+
+[DIGITAL_PROGRAMMING:10]
+
+# PROGRAMMING ENVIRONMENTS
+code_editor_dark_theme|syntax_highlighting_colors,terminal_green_text,multiple_monitor_setup,late_night_coding|programmer_aesthetic,development_environment|syntax_spectrum,terminal_green,editor_dark|3
+github_commit_visualization|version_control_branches,pull_request_merges,code_collaboration,open_source_contributions|software_development_workflow,collaboration_visualization|github_black,commit_green,merge_blue|2
+stack_overflow_debugging|error_message_red,copy_paste_solutions,developer_community,problem_solving|programming_humor,developer_culture|stackoverflow_orange,error_red,solution_green|1
+
+# DIGITAL ART & GRAPHICS
+pixel_art_retro_gaming|8bit_character_sprites,limited_color_palettes,pixel_perfect_precision,nostalgic_computing|retro_digital_art,pixel_perfection|pixel_primaries,8bit_spectrum,retro_neon|2
+3d_wireframe_modeling|polygon_mesh_structures,vertex_manipulation,texture_mapping,render_pipelines|3d_graphics_technical,digital_modeling|wireframe_cyan,vertex_white,polygon_blue|1
+shader_code_visuals|fragment_shader_mathematics,vertex_transformations,gpu_parallel_processing,real_time_rendering|graphics_programming,shader_art|shader_purple,math_gold,gpu_green|1
+
+# =================================================================
+# WAR & MILITARY (8% total weight) - BATTLES & MILITARY THEMES
+# =================================================================
+
+[WAR_MILITARY:8]
+
+# MODERN WARFARE
+special_forces_operations|night_vision_tactical,stealth_infiltration,precision_strikes,modern_combat|military_tactical_realism,special_operations|tactical_black,night_vision_green,combat_tan|2
+apache_helicopter_combat|rotorcraft_gunships,hellfire_missiles,battlefield_support,air_cavalry|military_aviation,helicopter_warfare|apache_olive,missile_orange,rotor_black|1
+aircraft_carrier_operations|naval_aviation_deck,catapult_launches,arresting_cables,floating_airfield|naval_aviation,carrier_operations|navy_blue,deck_gray,aviation_white|1
+
+# HISTORICAL WARFARE  
+world_war_normandy|d_day_landings,beach_assault,allied_invasion,heroic_sacrifice|historical_warfare,wwii_drama|normandy_sand,allied_green,sacrifice_red|1
+samurai_battlefield|katana_sword_mastery,bushido_honor_code,feudal_japan_warfare,cherry_blossom_death|samurai_warrior_culture,feudal_combat|katana_steel,honor_gold,cherry_pink|1
+viking_longship_raids|norse_warriors,dragon_head_ships,coastal_raids,valhalla_bound|viking_warfare_culture,norse_mythology|viking_blue,longship_brown,raid_red|1
+spartan_phalanx_formation|300_warriors,bronze_shields,spear_wall,thermopylae_stand|ancient_warfare,spartan_discipline|spartan_bronze,shield_gold,phalanx_red|1
+
+# =================================================================
+# ADULT AESTHETIC (6% total weight) - TASTEFUL ADULT THEMES
+# =================================================================
+
+[ADULT_AESTHETIC:6]
+
+# BEACH & BIKINI THEMES (Tasteful)
+miami_beach_sunset|art_deco_architecture,ocean_waves_crashing,golden_hour_lighting,tropical_paradise|retro_glamour_photography,beach_lifestyle|sunset_orange,ocean_blue,art_deco_pink|2
+maldives_overwater_villa|crystal_clear_lagoons,luxury_resort_aesthetic,infinity_pool_reflections,tropical_elegance|luxury_travel_photography,tropical_paradise|maldives_turquoise,villa_white,luxury_gold|1
+california_surfer_culture|pacific_coast_highway,vintage_woody_wagons,surf_board_collections,beach_town_vibes|surf_culture_aesthetic,coastal_lifestyle|surf_blue,california_gold,beach_tan|1
+
+# FASHION & GLAMOUR (Tasteful)
+paris_fashion_week|haute_couture_elegance,runway_sophistication,designer_creativity,fashion_photography|high_fashion_artistry,couture_elegance|fashion_black,couture_white,elegance_gold|1
+vintage_pin_up_art|1950s_aesthetic,classic_americana,retro_charm,vintage_photography|retro_glamour_art,vintage_aesthetics|pin_up_red,vintage_cream,retro_blue|1
+
+# =================================================================
+# NATURE EXPANDED (12% total weight) - MORE NATURAL ENVIRONMENTS
+# =================================================================
+
+[NATURE_EXPANDED:12]
+
+# FOREST ENVIRONMENTS
+redwood_cathedral_groves|ancient_giant_trees,dappled_sunlight_filtering,fern_understory,primeval_silence|ancient_forest_majesty,natural_cathedral|redwood_brown,forest_green,cathedral_gold|3
+amazon_rainforest_canopy|biodiversity_explosion,layered_forest_structure,exotic_bird_calls,oxygen_production|tropical_rainforest_ecosystem,biodiversity_wonder|amazon_green,canopy_brown,biodiversity_spectrum|2
+autumn_maple_fire|blazing_fall_colors,leaf_carpet_crunching,seasonal_transformation,harvest_warmth|autumn_color_explosion,seasonal_beauty|maple_red,autumn_orange,fire_yellow|2
+
+# MOUNTAIN & ALPINE
+himalayan_summit_conquest|everest_peak_challenge,oxygen_thin_air,prayer_flag_colors,mountaineering_triumph|alpine_adventure,mountain_conquest|himalaya_white,summit_blue,prayer_spectrum|2
+rocky_mountain_wildlife|elk_bugling_calls,aspen_grove_quaking,alpine_lake_reflections,wilderness_pristine|north_american_wilderness,wildlife_habitat|rocky_gray,aspen_gold,alpine_blue|1
+
+# OCEAN & MARINE
+great_barrier_reef|coral_ecosystem_diversity,tropical_fish_schools,underwater_rainbow,marine_conservation|underwater_paradise,coral_reef_beauty|reef_spectrum,coral_orange,marine_blue|1
+antarctic_iceberg_cathedral|ice_formation_architecture,penguin_colonies,polar_wilderness,climate_indicators|polar_environment,ice_architecture|iceberg_blue,antarctic_white,polar_silver|1
+
+# =================================================================
+# URBAN CITYSCAPE (10% total weight) - CITY ENVIRONMENTS & CULTURE
+# =================================================================
+
+[URBAN_CITYSCAPE:10]
+
+# METROPOLITAN SKYLINES
+new_york_manhattan_energy|skyscraper_canyons,yellow_taxi_streams,broadway_lights,never_sleeps_energy|urban_energy_visualization,metropolitan_pulse|taxi_yellow,skyscraper_gray,broadway_neon|3
+tokyo_neon_cyberpunk|shibuya_crossing_chaos,neon_sign_overload,vending_machine_culture,urban_density|cyberpunk_reality,japanese_urban|tokyo_neon,crossing_white,urban_chaos|2
+london_fog_historic|double_decker_buses,big_ben_chimes,thames_river_bridges,royal_architecture|historic_urban_elegance,british_atmosphere|london_gray,royal_red,thames_blue|1
+
+# URBAN CULTURE & LIFESTYLE  
+street_art_graffiti|urban_canvas_walls,spray_paint_masterpieces,underground_culture,artistic_rebellion|street_art_culture,urban_expression|graffiti_spectrum,urban_gray,rebellion_red|2
+rooftop_garden_oasis|urban_agriculture,green_roof_movement,city_escape_nature,sustainable_urban|urban_sustainability,green_architecture|garden_green,rooftop_brown,oasis_blue|1
+night_market_street_food|cultural_food_fusion,neon_food_stalls,urban_culinary_adventure,multicultural_dining|street_food_culture,culinary_diversity|market_amber,food_spectrum,cultural_gold|1
+
+# =================================================================  
+# MYTHOLOGY & LEGENDS (8% total weight) - MYTHOLOGICAL THEMES
+# =================================================================
+
+[MYTHOLOGY_LEGENDS:8]
+
+# GREEK MYTHOLOGY
+mount_olympus_gods|zeus_lightning_throne,athena_wisdom_owl,poseidon_trident_seas,divine_greek_pantheon|classical_mythology,olympian_majesty|olympian_gold,lightning_white,divine_blue|2
+trojan_war_epic|achilles_heel_vulnerability,helen_face_ships,wooden_horse_deception,epic_siege_warfare|epic_classical_literature,heroic_tragedy|trojan_bronze,epic_red,siege_brown|1
+
+# NORSE MYTHOLOGY  
+asgard_rainbow_bridge|bifrost_rainbow_spanning,thor_hammer_mjolnir,odin_wisdom_ravens,ragnarok_approaching|norse_mythological_grandeur,viking_gods|bifrost_spectrum,asgard_gold,ragnarok_red|2
+valhalla_warrior_hall|einherjar_eternal_feast,valkyrie_battle_selection,mead_hall_celebration,warrior_afterlife|norse_warrior_culture,afterlife_honor|valhalla_gold,warrior_bronze,mead_amber|1
+
+# EGYPTIAN MYTHOLOGY
+pyramid_pharaoh_tomb|anubis_jackal_guardian,hieroglyph_sacred_writing,mummy_preservation_ritual,afterlife_journey|ancient_egyptian_mystery,pharaonic_grandeur|pyramid_gold,anubis_black,hieroglyph_blue|1
+sphinx_riddle_guardian|lion_human_hybrid,riddle_challenge_wisdom,desert_sentinel_eternal,ancient_mystery_keeper|ancient_wisdom_guardian,desert_mystery|sphinx_sandstone,riddle_gold,guardian_bronze|1
+
+# =================================================================
+# RETRO & VINTAGE (8% total weight) - NOSTALGIC THEMES  
+# =================================================================
+
+[RETRO_VINTAGE:8]
+
+# 1980s AESTHETICS
+synthwave_neon_grid|geometric_grid_horizons,neon_purple_pink,retrowave_music_visualization,80s_nostalgia|synthwave_aesthetic,retro_futurism|synthwave_purple,neon_pink,grid_cyan|3
+arcade_cabinet_nostalgia|coin_operated_games,joystick_button_mashing,high_score_competition,arcade_ambiance|arcade_culture,retro_gaming|arcade_neon,cabinet_black,coin_yellow|2
+
+# 1950s AMERICANA  
+diner_jukebox_culture|chrome_bar_stools,milkshake_fountain,rock_roll_jukebox,americana_nostalgia|1950s_americana,diner_culture|diner_red,chrome_silver,jukebox_yellow|1
+drive_in_movie_theater|car_cinema_experience,outdoor_movie_screening,concession_stand_treats,americana_entertainment|drive_in_culture,outdoor_cinema|movie_silver,drive_in_blue,concession_yellow|1
+
+# VICTORIAN ERA
+steampunk_mechanical_elegance|brass_gear_mechanisms,steam_powered_machinery,victorian_industrial_revolution,clockwork_precision|steampunk_victorian,mechanical_artistry|brass_gold,steam_white,gear_bronze|1
+
+# =================================================================
+# UNDERWATER & OCEAN (8% total weight) - MARINE ENVIRONMENTS
+# =================================================================
+
+[UNDERWATER_OCEAN:8]
+
+# DEEP SEA EXPLORATION
+mariana_trench_abyss|deepest_ocean_point,pressure_suit_diving,bioluminescent_creatures,abyssal_plain_mystery|deep_sea_exploration,abyssal_wonder|abyss_black,pressure_blue,bioluminescent_green|2
+submarine_deep_exploration|nuclear_submarine_vessel,sonar_ping_navigation,underwater_stealth,ocean_depth_pressure|submarine_warfare,underwater_exploration|submarine_gray,sonar_green,depth_blue|1
+
+# MARINE LIFE ECOSYSTEMS  
+whale_song_communication|humpback_whale_migration,underwater_whale_songs,ocean_mammal_intelligence,marine_conservation|marine_life_intelligence,ocean_conservation|whale_gray,song_blue,migration_white|2
+coral_reef_biodiversity|tropical_fish_rainbow,sea_turtle_navigation,shark_apex_predator,reef_ecosystem_balance|coral_reef_ecosystem,marine_biodiversity|coral_spectrum,tropical_blue,reef_orange|1
+
+# UNDERWATER CIVILIZATIONS
+atlantis_lost_city|sunken_civilization_ruins,advanced_underwater_technology,aquatic_humanoid_inhabitants,lost_knowledge_recovery|lost_civilization_mystery,underwater_archaeology|atlantis_blue,ruins_stone,lost_gold|1
+submarine_city_colony|underwater_habitat_domes,aquatic_agriculture,pressurized_living,ocean_colonization|underwater_colonization,marine_habitation|habitat_silver,colony_blue,pressure_white|1
+
+# =================================================================
+# DESERT & WASTELAND (7% total weight) - POST-APOCALYPTIC THEMES
+# =================================================================
+
+[DESERT_WASTELAND:7]
+
+# POST-APOCALYPTIC SURVIVAL
+mad_max_wasteland|fuel_scarcity_warfare,armored_vehicle_combat,desert_survival,resource_wars|post_apocalyptic_survival,wasteland_warfare|wasteland_tan,fuel_black,combat_rust|2
+fallout_nuclear_winter|radioactive_wasteland,vault_shelter_survival,mutated_creatures,nuclear_devastation|nuclear_apocalypse,radiation_survival|fallout_green,radiation_yellow,vault_blue|1
+
+# DESERT ENVIRONMENTS
+sahara_sand_dunes|endless_sand_ocean,camel_caravan_travel,oasis_mirage_hope,nomadic_desert_culture|desert_vastness,nomadic_culture|sahara_gold,sand_tan,oasis_blue|2
+arizona_desert_sunset|saguaro_cactus_sentinels,red_rock_formations,desert_wildlife_adaptation,southwestern_beauty|american_southwest,desert_beauty|arizona_red,cactus_green,sunset_orange|1
+
+# ABANDONED CIVILIZATIONS
+ghost_town_western|abandoned_mining_town,tumbleweed_rolling,saloon_doors_creaking,frontier_decay|western_abandonment,frontier_decay|ghost_gray,western_brown,decay_rust|1
+
+# =================================================================
+# SPORTS & ATHLETICS (6% total weight) - SPORTS THEMES
+# =================================================================
+
+[SPORTS_ATHLETICS:6]
+
+# EXTREME SPORTS
+mountain_bike_downhill|steep_trail_descent,adrenaline_rush_speed,forest_single_track,gravity_powered_thrills|extreme_sports_adrenaline,mountain_biking|trail_brown,bike_orange,adrenaline_red|2
+skateboard_street_culture|urban_skateboard_tricks,concrete_jungle_playground,street_skating_creativity,youth_rebellion_expression|skateboard_culture,street_sports|skateboard_spectrum,concrete_gray,street_black|1
+
+# PROFESSIONAL SPORTS  
+football_stadium_roar|touchdown_celebration,crowd_energy_waves,friday_night_lights,american_football_culture|american_sports_culture,stadium_atmosphere|football_brown,field_green,stadium_lights|1
+basketball_court_poetry|athletic_grace_motion,slam_dunk_power,court_choreography,urban_basketball_culture|basketball_artistry,court_culture|basketball_orange,court_wood,rim_red|1
+
+# OLYMPIC COMPETITION
+olympic_torch_ceremony|international_athletic_competition,human_physical_excellence,national_pride_display,sporting_unity|olympic_ideals,athletic_excellence|olympic_gold,torch_flame,unity_spectrum|1
+
+# =================================================================
+# FOOD & CULINARY (5% total weight) - CULINARY THEMES
+# =================================================================
+
+[FOOD_CULINARY:5]
+
+# FINE DINING & GASTRONOMY
+michelin_star_plating|artistic_food_presentation,culinary_masterpiece_creation,fine_dining_elegance,gastronomic_innovation|culinary_artistry,fine_dining|michelin_white,gastronomy_gold,plating_spectrum|2
+japanese_sushi_mastery|fresh_fish_precision_cutting,sushi_chef_knife_skills,minimalist_japanese_presentation,umami_flavor_balance|japanese_culinary_art,sushi_perfection|sushi_white,fish_pink,wasabi_green|1
+
+# COMFORT FOOD CULTURE  
+italian_pasta_tradition|handmade_pasta_creation,tomato_sauce_simmering,parmesan_cheese_aged,family_recipe_heritage|italian_culinary_tradition,comfort_food|pasta_cream,tomato_red,parmesan_gold|1
+bbq_smokehouse_culture|slow_smoked_meats,hickory_wood_smoke,barbecue_sauce_glazing,southern_cooking_tradition|barbecue_culture,smoking_tradition|bbq_brown,smoke_gray,sauce_red|1
+
+# =================================================================
+# SEASONAL/WEATHER INTEGRATIONS  
 # =================================================================
 # Note: All themes above will be modified by current weather conditions
 # Current weather context will be injected as: {weather_condition}_{weather_mood}

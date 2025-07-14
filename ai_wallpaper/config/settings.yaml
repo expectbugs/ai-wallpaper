@@ -1,0 +1,131 @@
+# General Settings for AI Wallpaper System
+
+# Application behavior
+app:
+  name: "AI Wallpaper Generator"
+  version: "3.0.0"
+  debug: false
+  fail_loud: true  # Always fail with verbose errors
+  
+# Wallpaper settings
+wallpaper:
+  # Whether to automatically set the generated image as desktop wallpaper
+  auto_set_wallpaper: true
+  
+  # Desktop environment configuration
+  desktop_environment:
+    # Auto-detect or specify: gnome, kde, xfce, mate, cinnamon, lxde, lxqt, i3, sway, hyprland, macos, windows
+    type: "auto"  # Set to specific DE to override auto-detection
+    
+    # Commands for different desktop environments
+    commands:
+      xfce:
+        detect: "command -v xfconf-query"
+        set: "xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s {image_path}"
+      
+      gnome:
+        detect: "command -v gsettings && gsettings get org.gnome.desktop.interface gtk-theme 2>/dev/null"
+        set: "gsettings set org.gnome.desktop.background picture-uri 'file://{image_path}'"
+      
+      kde:
+        detect: "command -v qdbus"
+        set: "qdbus org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript 'var allDesktops = desktops(); for (i=0;i<allDesktops.length;i++) {{ d = allDesktops[i]; d.wallpaperPlugin = \"org.kde.image\"; d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"General\"); d.writeConfig(\"Image\", \"file://{image_path}\")}}'"
+      
+      mate:
+        detect: "command -v gsettings && gsettings get org.mate.background picture-filename 2>/dev/null"
+        set: "gsettings set org.mate.background picture-filename '{image_path}'"
+      
+      cinnamon:
+        detect: "command -v gsettings && gsettings get org.cinnamon.desktop.background picture-uri 2>/dev/null"
+        set: "gsettings set org.cinnamon.desktop.background picture-uri 'file://{image_path}'"
+      
+      lxde:
+        detect: "command -v pcmanfm"
+        set: "pcmanfm --set-wallpaper={image_path}"
+      
+      lxqt:
+        detect: "command -v pcmanfm-qt"
+        set: "pcmanfm-qt --set-wallpaper={image_path}"
+      
+      i3:
+        detect: "pgrep -x i3"
+        set: "feh --bg-scale {image_path}"
+        dependencies: ["feh"]
+      
+      sway:
+        detect: "pgrep -x sway"
+        set: "swaymsg output '*' bg {image_path} fill"
+      
+      hyprland:
+        detect: "pgrep -x Hyprland"
+        set: "hyprctl hyprpaper wallpaper ',{image_path}'"
+        dependencies: ["hyprpaper"]
+      
+      macos:
+        detect: "uname -s | grep -q Darwin"
+        set: "osascript -e 'tell application \"Finder\" to set desktop picture to POSIX file \"{image_path}\"'"
+      
+      windows:
+        detect: "uname -s | grep -q MINGW"
+        set: "reg add 'HKCU\\Control Panel\\Desktop' /v Wallpaper /t REG_SZ /d '{image_path}' /f && RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters"
+
+# Image output settings
+output:
+  # Final image settings
+  final_resolution: [3840, 2160]  # 4K
+  format: "png"
+  quality: 100  # PNG compression level (100 = no compression)
+  
+  # Whether to save intermediate stage images
+  save_stages: false
+  stages_dir: /home/user/ai-wallpaper/images/stages
+  
+  # Image naming
+  filename_format: "ai_wallpaper_{date}_{time}_{model}.{ext}"
+  wallpaper_path: /home/user/Pictures/ai-wallpaper.png
+  
+  # Archive settings
+  archive:
+    enabled: true
+    directory: /home/user/ai-wallpaper/images
+    keep_days: 30  # Delete images older than this
+    max_size_gb: 50  # Maximum total size of archive
+
+# Performance settings
+performance:
+  # GPU/VRAM management
+  gpu:
+    device: 0  # CUDA device index
+    memory_fraction: 0.95  # Maximum fraction of VRAM to use
+    enable_tf32: true  # Enable TensorFloat-32 for RTX 3090
+    
+  # CPU settings
+  cpu:
+    threads: 8  # Number of threads for CPU operations
+    
+  # Memory management
+  cleanup:
+    aggressive: true  # Aggressive cleanup between models
+    gc_collect: true  # Force garbage collection
+    clear_cache: true  # Clear CUDA cache
+
+# Logging settings
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "[{timestamp}] [{model}] {message}"
+  file:
+    enabled: true
+    path: /home/user/ai-wallpaper/logs/{date}.log
+    max_size_mb: 100
+    backup_count: 7
+  console:
+    enabled: true
+    color: true
+
+# Notification settings (for future implementation)
+notifications:
+  enabled: false
+  methods:
+    desktop: true  # Desktop notifications
+    sound: false   # Play sound on completion
+    webhook: null  # Discord/Slack webhook URL
