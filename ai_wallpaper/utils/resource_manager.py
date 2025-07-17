@@ -240,8 +240,8 @@ class ResourceManager:
         if usage['gpu']:
             gpu = usage['gpu']
             self.logger.info(f"GPU: {gpu['device']}")
-            self.logger.info(f"VRAM: {gpu['vram_allocated_gb']:.2f}/{gpu['vram_total_gb']:.1f}GB allocated")
-            self.logger.info(f"VRAM Free: {gpu['vram_free_gb']:.2f}GB")
+            self.logger.info(f"VRAM: {gpu['vram_allocated_gb']:.1f}/{gpu['vram_total_gb']:.1f}GB allocated")
+            self.logger.info(f"VRAM Free: {gpu['vram_free_gb']:.1f}GB")
 
 # Global resource manager instance
 _resource_manager: Optional[ResourceManager] = None

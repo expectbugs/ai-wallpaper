@@ -110,7 +110,7 @@ class TestCommand:
                 
                 prompter.cleanup()
                 
-                self.logger.info(f"Generated prompt: {prompt[:100]}...")
+                self.logger.info(f"Generated prompt: {prompt}")
                 
             return {
                 'success': True,

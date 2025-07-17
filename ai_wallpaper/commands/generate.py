@@ -69,21 +69,29 @@ class GenerateCommand:
             return None
             
         try:
-            # Step 1: Select model
-            self.logger.log_stage("Step 1/6", "Selecting model")
+            # Step 1: Validate theme if provided (before loading model)
+            if theme and not prompt:
+                self.logger.log_stage("Step 1/7", "Validating theme")
+                theme_data = get_theme_by_name(theme)
+                if not theme_data:
+                    raise GenerationError("theme", "validation", 
+                        ValueError(f"Theme '{theme}' not found in any category"))
+            
+            # Step 2: Select model
+            self.logger.log_stage("Step 2/7", "Selecting model")
             selected_model = self._select_model(model, random_model)
             
-            # Step 2: Initialize model
-            self.logger.log_stage("Step 2/6", f"Initializing {selected_model}")
+            # Step 3: Initialize model
+            self.logger.log_stage("Step 3/7", f"Initializing {selected_model}")
             model_instance = self._initialize_model(selected_model)
             
-            # Step 3: Generate or get prompt
-            self.logger.log_stage("Step 3/6", "Preparing prompt")
+            # Step 4: Generate or get prompt
+            self.logger.log_stage("Step 4/7", "Preparing prompt")
             if not prompt:
                 prompt = self._generate_prompt(theme, model_instance)
                 
-            # Step 4: Set generation parameters
-            self.logger.log_stage("Step 4/6", "Setting parameters")
+            # Step 5: Set generation parameters
+            self.logger.log_stage("Step 5/7", "Setting parameters")
             params = self._prepare_parameters(
                 model_instance,
                 random_params,
@@ -91,16 +99,16 @@ class GenerateCommand:
                 save_stages
             )
             
-            # Step 5: Generate image
-            self.logger.log_stage("Step 5/6", "Generating image")
+            # Step 6: Generate image
+            self.logger.log_stage("Step 6/7", "Generating image")
             result = model_instance.generate(prompt, seed=seed, **params)
             
-            # Step 6: Set wallpaper if requested
+            # Step 7: Set wallpaper if requested
             if not no_wallpaper:
-                self.logger.log_stage("Step 6/6", "Setting wallpaper")
+                self.logger.log_stage("Step 7/7", "Setting wallpaper")
                 set_wallpaper(Path(result['image_path']))
             else:
-                self.logger.log_stage("Step 6/6", "Skipping wallpaper setting")
+                self.logger.log_stage("Step 7/7", "Skipping wallpaper setting")
                 
             # Clean up
             model_instance.cleanup()
@@ -152,7 +160,7 @@ class GenerateCommand:
             
         # Prompt
         if options['prompt']:
-            self.logger.info(f"Prompt: Custom - '{options['prompt'][:50]}...'")
+            self.logger.info(f"Prompt: Custom - '{options['prompt']}'")
         else:
             self.logger.info("Prompt: Will generate based on theme and weather")
             
@@ -176,8 +184,10 @@ class GenerateCommand:
             Selected model name
         """
         if model:
-            self.logger.info(f"Using forced model: {model}")
-            return model
+            # Normalize model name (gpt-image-1 -> gpt_image_1)
+            normalized_model = model.replace('-', '_')
+            self.logger.info(f"Using forced model: {normalized_model}")
+            return normalized_model
             
         if random_model:
             # Get model weights from config
@@ -231,9 +241,8 @@ class GenerateCommand:
         else:
             raise ValueError(f"Unknown model class: {model_class}")
             
-        # Initialize
-        model.initialize()
-        
+        # Don't initialize here - let the model handle lazy initialization
+        # This prevents SDXL from loading before prompt generation
         return model
         
     def _generate_prompt(self, theme: Optional[str], model_instance) -> str:

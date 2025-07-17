@@ -71,27 +71,20 @@ class PromptOptimizer:
         return prompt.strip()
         
     def _enforce_length(self, prompt: str, requirements: Dict[str, Any]) -> str:
-        """Enforce word count limits
+        """Check word count but do NOT truncate
         
         Args:
             prompt: Prompt to check
             requirements: Model requirements
             
         Returns:
-            Length-adjusted prompt
+            Original prompt (unmodified)
         """
         max_words = requirements.get('max_words', 100)
         words = prompt.split()
         
         if len(words) > max_words:
-            # Truncate intelligently - keep beginning and end
-            keep_start = int(max_words * 0.7)
-            keep_end = max_words - keep_start - 1
-            
-            truncated = words[:keep_start] + ['...'] + words[-keep_end:]
-            prompt = ' '.join(truncated)
-            
-            self.logger.debug(f"Truncated prompt from {len(words)} to {max_words} words")
+            self.logger.debug(f"Prompt has {len(words)} words (guideline: {max_words}) - keeping full prompt")
             
         return prompt
         

@@ -10,6 +10,7 @@ import sys
 import time
 import random
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional, List
 from datetime import datetime
@@ -20,7 +21,9 @@ from diffusers import (
     StableDiffusionXLImg2ImgPipeline,
     DPMSolverMultistepScheduler,
     EulerAncestralDiscreteScheduler,
-    DDIMScheduler
+    DDIMScheduler,
+    HeunDiscreteScheduler,
+    KDPM2DiscreteScheduler
 )
 from PIL import Image
 
@@ -64,16 +67,22 @@ class SdxlModel(BaseImageModel):
             
             # Load pipeline
             model_path = self.config.get('model_path', 'stabilityai/stable-diffusion-xl-base-1.0')
+            checkpoint_path = self.config.get('checkpoint_path')
             
-            self.logger.info(f"Loading SDXL pipeline from: {model_path}")
-            
-            # Load with optimizations
-            self.pipe = StableDiffusionXLPipeline.from_pretrained(
-                model_path,
-                torch_dtype=torch.float16,
-                use_safetensors=True,
-                variant="fp16"
-            )
+            # Determine loading method
+            if checkpoint_path and Path(checkpoint_path).exists():
+                # Load from single checkpoint file
+                self.logger.info(f"Loading SDXL from checkpoint: {checkpoint_path}")
+                self.pipe = self._load_from_single_file(checkpoint_path)
+            else:
+                # Load from HuggingFace repo or directory
+                self.logger.info(f"Loading SDXL pipeline from: {model_path}")
+                self.pipe = StableDiffusionXLPipeline.from_pretrained(
+                    model_path,
+                    torch_dtype=torch.float16,
+                    use_safetensors=True,
+                    variant="fp16"
+                )
             
             # Move to GPU
             self.pipe = self.pipe.to("cuda")
@@ -89,26 +98,20 @@ class SdxlModel(BaseImageModel):
             except:
                 self.logger.info("xFormers not available, using standard attention")
                 
-            # Load img2img pipeline if refinement enabled
-            if self.config['pipeline'].get('enable_img2img_refine', True):
-                self.logger.info("Loading img2img pipeline for refinement...")
-                self.refiner_pipe = StableDiffusionXLImg2ImgPipeline.from_pretrained(
-                    model_path,
-                    torch_dtype=torch.float16,
-                    use_safetensors=True,
-                    variant="fp16"
-                )
-                self.refiner_pipe = self.refiner_pipe.to("cuda")
-                self.refiner_pipe.enable_vae_slicing()
-                self.refiner_pipe.enable_vae_tiling()
+            # Load SDXL Refiner model for ensemble of expert denoisers
+            self._load_refiner_model()
                 
             # Verify Real-ESRGAN is available
             self._find_realesrgan()
             
-            # Register with resource manager
+            # Validate pipeline stages before marking as initialized
+            self.validate_pipeline_stages()
+            
+            # Only register with resource manager after all initialization succeeds
+            # This prevents registration leaks if any initialization step fails
+            self._initialized = True
             self.resource_manager.register_model(self.model_name, self)
             
-            self._initialized = True
             self.logger.info("SDXL model initialized successfully")
             self.logger.log_vram("After initialization")
             
@@ -136,6 +139,9 @@ class SdxlModel(BaseImageModel):
         # Get generation parameters
         params = self.get_generation_params(**kwargs)
         
+        # Check disk space before starting generation
+        self.check_disk_space_for_generation(no_upscale=params.get('no_upscale', False))
+        
         # Use provided seed or generate random
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
@@ -146,6 +152,10 @@ class SdxlModel(BaseImageModel):
         # Track timing
         start_time = time.time()
         
+        # Track temp files for cleanup
+        temp_files = []
+        temp_dirs = []
+        
         try:
             # Select and load LoRA if enabled
             lora_info = None
@@ -155,24 +165,62 @@ class SdxlModel(BaseImageModel):
                 lora_info = self._select_and_load_lora(theme)
                 
             # Stage 1: Generate base image
-            stage1_result = self._generate_stage1(prompt, seed, params, lora_info)
+            stage1_result = self._generate_stage1(prompt, seed, params, lora_info, temp_files)
+            
+            # Save intermediate if requested
+            if self._should_save_stages(params):
+                stage1_result['saved_path'] = self._save_intermediate(
+                    stage1_result['image'], 'stage1_base', prompt
+                )
             
             # Stage 2: Optional img2img refinement
-            if self.config['pipeline'].get('enable_img2img_refine') and self.refiner_pipe:
+            initial_refinement = self.config['pipeline'].get('stages', {}).get('initial_refinement', {})
+            if initial_refinement.get('enabled', True) and self.refiner_pipe:
                 stage2_result = self._refine_stage2(
                     stage1_result['image'],
                     prompt,
                     seed,
-                    params
+                    params,
+                    temp_files
                 )
+                
+                # Save intermediate if requested
+                if self._should_save_stages(params):
+                    stage2_result['saved_path'] = self._save_intermediate(
+                        stage2_result['image'], 'stage2_refined', prompt
+                    )
             else:
                 stage2_result = stage1_result
                 
-            # Stage 3: Upscale 2x
-            stage3_result = self._upscale_stage3(stage2_result['image_path'])
-            
-            # Stage 4: Final crop/adjustment to 4K
-            stage4_result = self._finalize_stage4(stage3_result['image_path'])
+            # Check if upscaling is requested
+            if not params.get('no_upscale', False):
+                # Stage 3: Upscale 2x
+                stage3_result = self._upscale_stage3(stage2_result['image_path'], temp_dirs)
+                
+                # Save intermediate if requested
+                if self._should_save_stages(params):
+                    # Open the upscaled image to save intermediate
+                    with Image.open(stage3_result['image_path']) as img:
+                        stage3_result['saved_path'] = self._save_intermediate(
+                            img.copy(), 'stage3_upscaled', prompt
+                        )
+                
+                # Stage 4: Final crop/adjustment to 4K
+                stage4_result = self._finalize_stage4(stage3_result['image_path'])
+                
+                # Save intermediate if requested
+                if self._should_save_stages(params):
+                    with Image.open(stage4_result['image_path']) as img:
+                        stage4_result['saved_path'] = self._save_intermediate(
+                            img.copy(), 'stage4_final', prompt
+                        )
+                final_path = stage4_result['image_path']
+            else:
+                # Skip upscaling, use stage2 result as final
+                self.logger.info("Skipping upscaling as requested")
+                stage3_result = None
+                stage4_result = None
+                final_path = stage2_result['image_path']
             
             # Unload LoRA if loaded
             if lora_info:
@@ -182,7 +230,7 @@ class SdxlModel(BaseImageModel):
             duration = time.time() - start_time
             
             results = {
-                'image_path': stage4_result['image_path'],
+                'image_path': final_path,
                 'metadata': {
                     'prompt': prompt,
                     'seed': seed,
@@ -210,13 +258,32 @@ class SdxlModel(BaseImageModel):
             
         except Exception as e:
             raise GenerationError(self.name, "pipeline execution", e)
+        finally:
+            # Clean up all temp files created during generation
+            for temp_file in temp_files:
+                try:
+                    if temp_file.exists():
+                        temp_file.unlink()
+                        self.logger.debug(f"Cleaned up temp file: {temp_file}")
+                except Exception as cleanup_e:
+                    self.logger.warning(f"Failed to clean up {temp_file}: {cleanup_e}")
+                    
+            for temp_dir in temp_dirs:
+                try:
+                    if temp_dir.exists():
+                        import shutil
+                        shutil.rmtree(temp_dir)
+                        self.logger.debug(f"Cleaned up temp dir: {temp_dir}")
+                except Exception as cleanup_e:
+                    self.logger.warning(f"Failed to clean up {temp_dir}: {cleanup_e}")
             
     def _generate_stage1(
         self, 
         prompt: str, 
         seed: int, 
         params: Dict[str, Any],
-        lora_info: Optional[Dict[str, Any]]
+        lora_info: Optional[Dict[str, Any]],
+        temp_files: List[Path]
     ) -> Dict[str, Any]:
         """Stage 1: Generate base image
         
@@ -239,8 +306,19 @@ class SdxlModel(BaseImageModel):
         
         # Select scheduler
         scheduler_class = self._get_scheduler_class(params.get('scheduler'))
-        self.pipe.scheduler = scheduler_class.from_config(self.pipe.scheduler.config)
+        
+        # Get scheduler kwargs from config
+        scheduler_kwargs = self.config['generation'].get('scheduler_kwargs', {})
+        
+        # Initialize scheduler with kwargs
+        self.pipe.scheduler = scheduler_class.from_config(
+            self.pipe.scheduler.config,
+            **scheduler_kwargs
+        )
+        
         self.logger.info(f"Using scheduler: {scheduler_class.__name__}")
+        if scheduler_kwargs:
+            self.logger.debug(f"Scheduler kwargs: {scheduler_kwargs}")
         
         # Prepare parameters
         sdxl_params = {
@@ -267,32 +345,77 @@ class SdxlModel(BaseImageModel):
         if lora_info:
             self.logger.info(f"Using LoRA: {lora_info['name']} (weight: {lora_info['weight']:.2f})")
             
-        # Generate image
-        output = self.pipe(**sdxl_params)
-        image = output.images[0]
+        # Check if we should use ensemble of expert denoisers
+        use_ensemble = (
+            self.refiner_pipe is not None and 
+            self.config['pipeline'].get('stages', {}).get('base_generation', {}).get('enable_refiner', True)
+        )
+        
+        if use_ensemble:
+            # Ensemble of expert denoisers approach
+            total_steps = sdxl_params['num_inference_steps']
+            switch_at = self.config['pipeline'].get('stages', {}).get('base_generation', {}).get('refiner_switch_at', 0.8)
+            base_steps = int(total_steps * switch_at)
+            
+            self.logger.info(f"Using ensemble of expert denoisers: base for {base_steps} steps, refiner for final {total_steps - base_steps}")
+            
+            # Generate base image with specified denoising steps
+            sdxl_params['denoising_end'] = switch_at
+            output = self.pipe(**sdxl_params)
+            base_image = output.images[0]
+            
+            # Continue with refiner for final steps
+            refiner_params = {
+                'prompt': prompt,
+                'negative_prompt': sdxl_params['negative_prompt'],
+                'image': base_image,
+                'num_inference_steps': total_steps,
+                'denoising_start': switch_at,
+                'guidance_scale': params.get('guidance_scale', 7.5),
+                'generator': generator,
+            }
+            
+            # Apply refiner scheduler if different
+            if hasattr(self.refiner_pipe, 'scheduler'):
+                self.refiner_pipe.scheduler = scheduler_class.from_config(
+                    self.refiner_pipe.scheduler.config,
+                    **scheduler_kwargs
+                )
+            
+            output = self.refiner_pipe(**refiner_params)
+            image = output.images[0]
+            
+            self.logger.info("Ensemble generation complete")
+        else:
+            # Standard generation
+            output = self.pipe(**sdxl_params)
+            image = output.images[0]
         
         # Save stage 1 output
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        stage1_path = Path(f"/tmp/sdxl_stage1_{timestamp}.png")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        stage1_path = Path(tempfile.gettempdir()) / f"sdxl_stage1_{timestamp}.png"
         image.save(stage1_path, "PNG", quality=100)
+        # Track for cleanup
+        temp_files.append(stage1_path)
         
         self.logger.info(f"Stage 1 complete: Generated at {image.size}")
         self.logger.log_vram("After Stage 1")
         
-        return {
-            'image': image,
-            'image_path': stage1_path,
-            'size': image.size,
-            'scheduler': scheduler_class.__name__,
-            'lora': lora_info
-        }
+        return self._standardize_stage_result(
+            image_path=stage1_path,
+            image=image,
+            size=image.size,
+            scheduler=scheduler_class.__name__,
+            lora=lora_info
+        )
         
     def _refine_stage2(
         self,
         input_image: Image.Image,
         prompt: str,
         seed: int,
-        params: Dict[str, Any]
+        params: Dict[str, Any],
+        temp_files: List[Path]
     ) -> Dict[str, Any]:
         """Stage 2: Img2img refinement
         
@@ -310,38 +433,58 @@ class SdxlModel(BaseImageModel):
         # Set up generator
         generator = torch.Generator(device="cuda").manual_seed(seed + 1)  # Different seed for variation
         
-        # Get refinement strength
-        strength_range = self.config['pipeline'].get('refine_strength_range', [0.2, 0.4])
-        strength = random.uniform(*strength_range)
+        # Get refinement settings from new config structure
+        refinement_config = self.config['pipeline'].get('stages', {}).get('initial_refinement', {})
+        strength = refinement_config.get('denoising_strength', 0.35)
+        steps = refinement_config.get('steps', 50)
+        use_refiner = refinement_config.get('use_refiner_model', True)
         
-        self.logger.info(f"Refining with strength {strength:.2f}")
+        self.logger.info(f"Refining with strength {strength:.2f}, {steps} steps")
         
-        # Refine image
+        # Select scheduler for refinement
+        scheduler_class = self._get_scheduler_class(params.get('scheduler'))
+        scheduler_kwargs = self.config['generation'].get('scheduler_kwargs', {})
+        
+        # Apply scheduler to refiner pipe
+        if hasattr(self.refiner_pipe, 'scheduler'):
+            self.refiner_pipe.scheduler = scheduler_class.from_config(
+                self.refiner_pipe.scheduler.config,
+                **scheduler_kwargs
+            )
+        
+        # Refine image with SDXL refiner
         refined = self.refiner_pipe(
             prompt=prompt,
             image=input_image,
             strength=strength,
             guidance_scale=params.get('guidance_scale', 7.5),
-            num_inference_steps=int(params.get('steps', 50) * 0.5),  # Fewer steps for refinement
-            generator=generator
+            num_inference_steps=steps,
+            generator=generator,
+            negative_prompt=(
+                "low quality, blurry, pixelated, noisy, oversaturated, "
+                "underexposed, overexposed, bad anatomy, bad proportions, "
+                "watermark, signature, text, logo"
+            )
         ).images[0]
         
         # Save refined image
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        stage2_path = Path(f"/tmp/sdxl_stage2_{timestamp}.png")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        stage2_path = Path(tempfile.gettempdir()) / f"sdxl_stage2_{timestamp}.png"
         refined.save(stage2_path, "PNG", quality=100)
+        # Track for cleanup
+        temp_files.append(stage2_path)
         
         self.logger.info(f"Stage 2 complete: Refined at {refined.size}")
         
-        return {
-            'image': refined,
-            'image_path': stage2_path,
-            'size': refined.size,
-            'strength': strength
-        }
+        return self._standardize_stage_result(
+            image_path=stage2_path,
+            image=refined,
+            size=refined.size,
+            strength=strength
+        )
         
-    def _upscale_stage3(self, input_path: Path) -> Dict[str, Any]:
-        """Stage 3: Upscale 2x using Real-ESRGAN
+    def _upscale_stage3(self, input_path: Path, temp_dirs: List[Path]) -> Dict[str, Any]:
+        """Stage 3: Upscale using Real-ESRGAN to reach 4K
         
         Args:
             input_path: Path to input image
@@ -349,14 +492,24 @@ class SdxlModel(BaseImageModel):
         Returns:
             Stage results
         """
-        self.logger.log_stage("Stage 3", "Real-ESRGAN 2x upscaling")
+        # Calculate required scale factor
+        current_width, current_height = self.config['generation']['dimensions']
+        target_width = 3840
+        scale_factor = target_width / current_width  # 3840 / 1344 = 2.857
+        
+        # Round to nearest supported scale (3x)
+        scale_factor = 3
+        
+        self.logger.log_stage("Stage 3", f"Real-ESRGAN {scale_factor}x upscaling")
         
         # Find Real-ESRGAN
         realesrgan_script = self._find_realesrgan()
         
         # Prepare paths
-        temp_output_dir = Path(f"/tmp/sdxl_upscaled_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        temp_output_dir = Path(tempfile.gettempdir()) / f"sdxl_upscaled_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
         temp_output_dir.mkdir(exist_ok=True)
+        # Track for cleanup
+        temp_dirs.append(temp_output_dir)
         
         # Build command for 2x upscale
         if str(realesrgan_script).endswith('.py'):
@@ -366,8 +519,8 @@ class SdxlModel(BaseImageModel):
                 "-n", "RealESRGAN_x4plus",  # Use best model even for 2x
                 "-i", str(input_path),
                 "-o", str(temp_output_dir),
-                "--outscale", "2",  # 2x upscale
-                "-t", "512",  # Smaller tile size for 2x
+                "--outscale", str(scale_factor),  # Dynamic scale
+                "-t", "256",  # Smaller tile size to avoid Real-ESRGAN bug
                 "--fp32"
             ]
         else:
@@ -375,9 +528,9 @@ class SdxlModel(BaseImageModel):
                 str(realesrgan_script),
                 "-i", str(input_path),
                 "-o", str(temp_output_dir),
-                "-s", "2",
+                "-s", str(scale_factor),
                 "-n", "realesrgan-x4plus",
-                "-t", "512"
+                "-t", "256"
             ]
             
         self.logger.debug(f"Executing: {' '.join(cmd)}")
@@ -395,7 +548,10 @@ class SdxlModel(BaseImageModel):
                 self.logger.debug(f"Real-ESRGAN output: {result.stdout}")
                 
         except subprocess.CalledProcessError as e:
-            raise UpscalerError(str(input_path), e)
+            error_msg = f"Command failed with exit code {e.returncode}"
+            if e.stderr:
+                error_msg += f"\nError output: {e.stderr}"
+            raise UpscalerError(str(input_path), Exception(error_msg))
         except subprocess.TimeoutExpired:
             raise UpscalerError(str(input_path), Exception("Upscaling timed out"))
             
@@ -407,25 +563,28 @@ class SdxlModel(BaseImageModel):
         output_path = output_files[0]
         
         # Load and verify
-        upscaled_image = Image.open(output_path)
-        
-        # Expected: 1920x1024 * 2 = 3840x2048
+        with Image.open(output_path) as upscaled_image:
+            upscaled_size = upscaled_image.size
+            
+        # Expected size after upscaling
         expected_size = (
-            self.config['generation']['dimensions'][0] * 2,
-            self.config['generation']['dimensions'][1] * 2
+            self.config['generation']['dimensions'][0] * scale_factor,
+            self.config['generation']['dimensions'][1] * scale_factor
         )
         
-        if upscaled_image.size != expected_size:
-            self.logger.warning(f"Unexpected size: {upscaled_image.size}, expected {expected_size}")
+        if upscaled_size != expected_size:
+            self.logger.warning(f"Unexpected size: {upscaled_size}, expected {expected_size}")
             
-        self.logger.info(f"Stage 3 complete: Upscaled to {upscaled_image.size}")
+        self.logger.info(f"Stage 3 complete: Upscaled to {upscaled_size}")
         
-        return {
-            'image': upscaled_image,
-            'image_path': output_path,
-            'size': upscaled_image.size,
-            'scale_factor': 2
-        }
+        # Note: Not loading image here since it's not needed by caller
+        # Caller only uses image_path to pass to next stage
+        return self._standardize_stage_result(
+            image_path=output_path,
+            image=None,  # Not loading to save memory
+            size=upscaled_size,
+            scale_factor=scale_factor
+        )
         
     def _finalize_stage4(self, input_path: Path) -> Dict[str, Any]:
         """Stage 4: Final adjustment to 4K
@@ -439,29 +598,30 @@ class SdxlModel(BaseImageModel):
         self.logger.log_stage("Stage 4", "Finalizing to 4K")
         
         # Load upscaled image
-        image = Image.open(input_path)
+        with Image.open(input_path) as temp_image:
+            image = temp_image.copy()  # Create a copy that persists after context exit
         
-        # SDXL upscales to 3840x2048, need to crop to 3840x2160 for 16:9
-        if image.size == (3840, 2048):
-            # Add padding to reach 2160 height
-            new_image = Image.new('RGB', (3840, 2160), (0, 0, 0))
-            # Center the image vertically
-            y_offset = (2160 - 2048) // 2
-            new_image.paste(image, (0, y_offset))
-            image = new_image
-            self.logger.info("Added padding to reach 3840x2160")
-        elif image.size[0] == 3840 and image.size[1] > 2160:
-            # Crop if too tall
-            y_offset = (image.size[1] - 2160) // 2
-            image = image.crop((0, y_offset, 3840, y_offset + 2160))
-            self.logger.info("Cropped to 3840x2160")
+        # Target 4K resolution
+        target_width, target_height = 3840, 2160
+        
+        # Handle different upscaled sizes
+        if image.size != (target_width, target_height):
+            self.logger.info(f"Resizing from {image.size} to {target_width}x{target_height}")
+            
+            # Use high-quality Lanczos resampling
+            image = image.resize(
+                (target_width, target_height),
+                Image.Resampling.LANCZOS
+            )
+            
+            self.logger.info(f"Resized to {target_width}x{target_height} using Lanczos resampling")
             
         # Save final image
         config = get_config()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"sdxl_4k_{timestamp}.png"
         
-        output_dir = Path(config.paths.get('images_dir', '/tmp'))
+        output_dir = Path(config.paths.get('images_dir', tempfile.gettempdir()))
         output_dir.mkdir(exist_ok=True)
         
         final_path = output_dir / filename
@@ -470,19 +630,13 @@ class SdxlModel(BaseImageModel):
         self.logger.info(f"Stage 4 complete: Final 4K image at {image.size}")
         self.logger.info(f"Saved to: {final_path}")
         
-        # Clean up temp files
-        try:
-            if input_path.parent.name.startswith("sdxl_upscaled_"):
-                import shutil
-                shutil.rmtree(input_path.parent)
-        except Exception as e:
-            self.logger.debug(f"Failed to clean up temp files: {e}")
-            
-        return {
-            'image': image,
-            'image_path': final_path,
-            'size': image.size
-        }
+        # Cleanup now handled in finally block
+        
+        return self._standardize_stage_result(
+            image_path=final_path,
+            image=image,
+            size=image.size
+        )
         
     def _get_scheduler_class(self, scheduler_name: Optional[str]):
         """Get scheduler class from name
@@ -496,19 +650,54 @@ class SdxlModel(BaseImageModel):
         scheduler_map = {
             'DPMSolverMultistepScheduler': DPMSolverMultistepScheduler,
             'EulerAncestralDiscreteScheduler': EulerAncestralDiscreteScheduler,
-            'DDIMScheduler': DDIMScheduler
+            'DDIMScheduler': DDIMScheduler,
+            'HeunDiscreteScheduler': HeunDiscreteScheduler,
+            'KDPM2DiscreteScheduler': KDPM2DiscreteScheduler
         }
         
         if scheduler_name and scheduler_name in scheduler_map:
-            return scheduler_map[scheduler_name]
+            scheduler_class = scheduler_map[scheduler_name]
+            # Validate compatibility with current model
+            if self._validate_scheduler_compatibility(scheduler_class):
+                return scheduler_class
+            else:
+                self.logger.warning(f"Scheduler {scheduler_name} not compatible with current model, using default")
+                return DPMSolverMultistepScheduler
             
         # Random selection from available
         if 'scheduler_options' in self.config['generation']:
             options = self.config['generation']['scheduler_options']
-            scheduler_name = random.choice(options)
-            return scheduler_map.get(scheduler_name, DPMSolverMultistepScheduler)
+            # Try each option until we find a compatible one
+            random.shuffle(options)
+            for option in options:
+                scheduler_class = scheduler_map.get(option)
+                if scheduler_class and self._validate_scheduler_compatibility(scheduler_class):
+                    return scheduler_class
+            self.logger.warning("No compatible schedulers found in options, using default")
             
         return DPMSolverMultistepScheduler
+    
+    def _validate_scheduler_compatibility(self, scheduler_class) -> bool:
+        """Validate if scheduler is compatible with current model
+        
+        Args:
+            scheduler_class: Scheduler class to validate
+            
+        Returns:
+            True if compatible, False otherwise
+        """
+        try:
+            # Try to initialize scheduler with current pipeline config
+            test_scheduler = scheduler_class.from_config(self.pipe.scheduler.config)
+            # Check if scheduler has required methods
+            required_methods = ['set_timesteps', 'step', 'scale_model_input']
+            for method in required_methods:
+                if not hasattr(test_scheduler, method):
+                    return False
+            return True
+        except Exception as e:
+            self.logger.debug(f"Scheduler {scheduler_class.__name__} compatibility check failed: {e}")
+            return False
         
     def _select_and_load_lora(self, theme: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Select and load LoRA based on theme
@@ -538,13 +727,27 @@ class SdxlModel(BaseImageModel):
                 if not lora_path.exists():
                     self.logger.warning(f"LoRA file not found: {lora_path}")
                     continue
+                
+                # Validate LoRA file format and size
+                if not lora_path.suffix in ['.safetensors', '.ckpt', '.pt', '.bin']:
+                    self.logger.error(f"Invalid LoRA file format: {lora_path.suffix}")
+                    continue
+                
+                # Check file size (LoRAs should be reasonable size, not empty or huge)
+                file_size_mb = lora_path.stat().st_size / (1024 * 1024)
+                if file_size_mb < 1:
+                    self.logger.error(f"LoRA file too small ({file_size_mb:.1f}MB): {lora_path}")
+                    continue
+                elif file_size_mb > 2000:  # 2GB seems reasonable max for LoRA
+                    self.logger.error(f"LoRA file too large ({file_size_mb:.1f}MB): {lora_path}")
+                    continue
                     
                 try:
                     # Get weight
                     weight_range = lora_data.get('weight_range', [0.5, 1.0])
                     weight = random.uniform(*weight_range)
                     
-                    self.logger.info(f"Loading LoRA: {lora_name} with weight {weight:.2f}")
+                    self.logger.info(f"Loading LoRA: {lora_name} ({file_size_mb:.1f}MB) with weight {weight:.2f}")
                     
                     # Load LoRA weights
                     self.pipe.load_lora_weights(str(lora_path))
@@ -571,6 +774,99 @@ class SdxlModel(BaseImageModel):
         except Exception as e:
             self.logger.warning(f"Failed to unload LoRA: {e}")
             
+    def _load_refiner_model(self) -> None:
+        """Load SDXL Refiner model for ensemble of expert denoisers
+        
+        The refiner is specifically trained for the final denoising steps
+        and produces higher quality results when used properly.
+        """
+        refiner_path = self.config.get('refiner_model_path', 'stabilityai/stable-diffusion-xl-refiner-1.0')
+        refiner_checkpoint = self.config.get('refiner_checkpoint_path')
+        
+        try:
+            if refiner_checkpoint and Path(refiner_checkpoint).exists():
+                self.logger.info(f"Loading SDXL Refiner from checkpoint: {refiner_checkpoint}")
+                # Load refiner from single file
+                self.refiner_pipe = StableDiffusionXLImg2ImgPipeline.from_single_file(
+                    refiner_checkpoint,
+                    torch_dtype=torch.float16,
+                    use_safetensors=True,
+                    variant="fp16",
+                    add_watermarker=False
+                )
+            else:
+                self.logger.info(f"Loading SDXL Refiner from: {refiner_path}")
+                # Load from HuggingFace
+                self.refiner_pipe = StableDiffusionXLImg2ImgPipeline.from_pretrained(
+                    refiner_path,
+                    torch_dtype=torch.float16,
+                    use_safetensors=True,
+                    variant="fp16"
+                )
+            
+            # Move to GPU and enable optimizations
+            self.refiner_pipe = self.refiner_pipe.to("cuda")
+            self.refiner_pipe.enable_vae_slicing()
+            self.refiner_pipe.enable_vae_tiling()
+            
+            # Try to enable xformers
+            try:
+                self.refiner_pipe.enable_xformers_memory_efficient_attention()
+                self.logger.info("xFormers enabled for refiner")
+            except:
+                pass
+                
+            self.logger.info("SDXL Refiner loaded successfully")
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to load SDXL Refiner: {e}")
+            self.logger.warning("Continuing without refiner - quality may be reduced")
+            self.refiner_pipe = None
+    
+    def _load_from_single_file(self, checkpoint_path: str) -> StableDiffusionXLPipeline:
+        """Load SDXL from single safetensors checkpoint
+        
+        Args:
+            checkpoint_path: Path to checkpoint file
+            
+        Returns:
+            Loaded pipeline
+            
+        Raises:
+            ModelLoadError: If loading fails
+        """
+        try:
+            # Validate checkpoint exists
+            checkpoint = Path(checkpoint_path)
+            if not checkpoint.exists():
+                raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+                
+            if not checkpoint.suffix in ['.safetensors', '.ckpt']:
+                raise ValueError(f"Unsupported checkpoint format: {checkpoint.suffix}")
+                
+            self.logger.info("Loading SDXL from single checkpoint file...")
+            
+            # Import method for loading from single file
+            from diffusers.loaders import FromSingleFileMixin
+            
+            # Load pipeline from single file
+            # CRITICAL: Must use from_single_file method
+            pipe = StableDiffusionXLPipeline.from_single_file(
+                checkpoint_path,
+                torch_dtype=torch.float16,
+                use_safetensors=True,
+                variant="fp16",
+                add_watermarker=False  # Disable watermarker
+                # Note: SDXL doesn't have safety_checker
+            )
+            
+            self.logger.info("Successfully loaded SDXL from checkpoint")
+            return pipe
+            
+        except Exception as e:
+            self.logger.error(f"Failed to load checkpoint: {e}")
+            raise ModelLoadError(f"SDXL checkpoint loading failed: {checkpoint_path}", e)
+    
     def _find_realesrgan(self) -> Path:
         """Find Real-ESRGAN installation
         
@@ -610,16 +906,13 @@ class SdxlModel(BaseImageModel):
         
         raise UpscalerError("Real-ESRGAN", Exception(error_msg))
         
-    def cleanup(self) -> None:
-        """Clean up resources"""
+    def _pre_cleanup(self) -> None:
+        """Pre-cleanup hook: unload LoRA and unregister from resource manager"""
         # Unload LoRA if loaded
         self._unload_lora()
         
         # Unregister from resource manager
         self.resource_manager.unregister_model(self.model_name)
-        
-        # Call parent cleanup
-        super().cleanup()
         
     def get_optimal_prompt(self, theme: Dict, weather: Dict, context: Dict) -> str:
         """Get SDXL-optimized prompt

@@ -18,6 +18,13 @@ weather/
 # Personal Files
 pieinthesky.md
 
+# Development Files
+progress.md
+bugs.md
+sdxl_plan.md
+sdxl_research.txt
+sdxl_research2.txt
+
 # System Files
 .DS_Store
 Thumbs.db
@@ -31,3 +38,6 @@ Thumbs.db
 # Environment
 .env
 .venv/
+
+# Model directories (contain large files and embedded git repos)
+models/

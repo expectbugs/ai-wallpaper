@@ -8,7 +8,13 @@ import sys
 import subprocess
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
+from datetime import datetime
 from PIL import Image
+
+try:
+    import torch
+except ImportError:
+    torch = None
 
 from ..core import get_logger, get_config
 from ..core.exceptions import UpscalerError
@@ -101,12 +107,12 @@ class RealESRGANUpscaler:
             raise UpscalerError(str(input_path), FileNotFoundError("Input file not found"))
             
         # Get input dimensions
-        input_image = Image.open(input_path)
-        input_size = input_image.size
-        input_image.close()
+        with Image.open(input_path) as input_image:
+            input_size = input_image.size
         
-        # Prepare output path
-        output_dir = input_path.parent / "upscaled"
+        # Prepare unique output path with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        output_dir = input_path.parent / f"upscaled_{timestamp}"
         output_dir.mkdir(exist_ok=True)
         
         # Build command based on script type
@@ -165,9 +171,8 @@ class RealESRGANUpscaler:
         output_path = output_files[0]
         
         # Verify output
-        output_image = Image.open(output_path)
-        output_size = output_image.size
-        output_image.close()
+        with Image.open(output_path) as output_image:
+            output_size = output_image.size
         
         expected_size = (input_size[0] * scale, input_size[1] * scale)
         
@@ -205,9 +210,8 @@ class RealESRGANUpscaler:
             Upscaling results
         """
         # Get input dimensions
-        input_image = Image.open(input_path)
-        input_width, input_height = input_image.size
-        input_image.close()
+        with Image.open(input_path) as input_image:
+            input_width, input_height = input_image.size
         
         # Calculate required scale
         scale_w = (target_width + input_width - 1) // input_width  # Ceiling division
@@ -254,7 +258,7 @@ class RealESRGANUpscaler:
         return models
         
     def get_optimal_settings(self, image_size: Tuple[int, int]) -> Dict[str, Any]:
-        """Get optimal settings based on image size
+        """Get optimal settings based on image size and available VRAM
         
         Args:
             image_size: Input image dimensions
@@ -265,22 +269,58 @@ class RealESRGANUpscaler:
         width, height = image_size
         pixels = width * height
         
-        # Determine tile size based on image size
-        if pixels > 4000000:  # > 4MP
-            tile_size = 512
-        elif pixels > 2000000:  # > 2MP
-            tile_size = 768
-        else:
-            tile_size = 1024
-            
-        # Use FP32 for best quality
+        # Check available VRAM if torch is available
+        available_vram_gb = 0
+        if torch and torch.cuda.is_available():
+            try:
+                # Get free VRAM in GB
+                free_vram = torch.cuda.mem_get_info()[0]
+                available_vram_gb = free_vram / (1024**3)
+                self.logger.debug(f"Available VRAM: {available_vram_gb:.1f}GB")
+            except Exception:
+                # If we can't get VRAM info, assume limited VRAM
+                available_vram_gb = 2
+                
+        # Determine tile size based on both image size and VRAM
+        # Larger tiles are faster but use more VRAM
+        if available_vram_gb > 8:  # High VRAM (>8GB)
+            # Can use larger tiles
+            if pixels > 4000000:  # > 4MP
+                tile_size = 768
+            elif pixels > 2000000:  # > 2MP
+                tile_size = 1024
+            else:
+                tile_size = 1536
+        elif available_vram_gb > 4:  # Medium VRAM (4-8GB)
+            # Use moderate tiles
+            if pixels > 4000000:  # > 4MP
+                tile_size = 512
+            elif pixels > 2000000:  # > 2MP
+                tile_size = 768
+            else:
+                tile_size = 1024
+        else:  # Low VRAM (<4GB) or CPU
+            # Use smaller tiles to avoid OOM
+            if pixels > 4000000:  # > 4MP
+                tile_size = 256
+            elif pixels > 2000000:  # > 2MP
+                tile_size = 384
+            else:
+                tile_size = 512
+                
+        # Use FP32 for quality if we have enough VRAM, FP16 otherwise
+        use_fp32 = available_vram_gb > 6
+        
         settings = {
             'tile_size': tile_size,
-            'fp32': True,
+            'fp32': use_fp32,
             'model': 'RealESRGAN_x4plus'  # Best general-purpose model
         }
         
-        self.logger.debug(f"Optimal settings for {width}x{height}: {settings}")
+        self.logger.debug(
+            f"Optimal settings for {width}x{height} with {available_vram_gb:.1f}GB VRAM: "
+            f"tile_size={tile_size}, fp32={use_fp32}"
+        )
         
         return settings
 

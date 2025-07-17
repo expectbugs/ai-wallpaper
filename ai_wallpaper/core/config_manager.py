@@ -8,6 +8,7 @@ import os
 import sys
 import yaml
 import re
+import threading
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime
@@ -77,7 +78,13 @@ class ConfigManager:
         # Validate configuration
         self._validate_all()
         
-        print(f"[CONFIG] Successfully loaded {len(self.loaded_files)} configuration files")
+        # Count required vs optional files
+        required_count = 5  # models, paths, weather, settings, themes
+        optional_count = 1  # system
+        loaded_count = len(self.loaded_files)
+        
+        print(f"[CONFIG] Successfully loaded {loaded_count} configuration files "
+              f"({required_count} required, {loaded_count - required_count} optional)")
         
     def _load_yaml(self, filename: str, required: bool = True) -> Dict[str, Any]:
         """Load a YAML configuration file
@@ -98,6 +105,8 @@ class ConfigManager:
                     f"Please ensure all configuration files are present."
                 )
             else:
+                # For optional files, just note they're missing without alarming the user
+                print(f"[CONFIG] Optional file {filename} not found - using defaults")
                 return {}
                 
         try:
@@ -396,13 +405,20 @@ class ConfigManager:
         print("[CONFIG] Could not auto-detect desktop environment")
         return None
 
-# Singleton instance
+# Singleton instance with thread safety
 _config_manager: Optional[ConfigManager] = None
+_config_lock = threading.Lock()
 
 def get_config() -> ConfigManager:
-    """Get the global configuration manager instance"""
+    """Get the global configuration manager instance (thread-safe)"""
     global _config_manager
+    
+    # Double-checked locking pattern for thread safety
     if _config_manager is None:
-        _config_manager = ConfigManager()
-        _config_manager.load_all()
+        with _config_lock:
+            # Check again inside the lock
+            if _config_manager is None:
+                _config_manager = ConfigManager()
+                _config_manager.load_all()
+    
     return _config_manager

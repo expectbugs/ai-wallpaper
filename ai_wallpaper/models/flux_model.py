@@ -10,6 +10,7 @@ import sys
 import time
 import random
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional, List
 from datetime import datetime
@@ -47,9 +48,9 @@ class FluxModel(BaseImageModel):
             self.logger.info("Initializing FLUX.1-dev model...")
             
             # Clear GPU cache before starting
+            gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-                gc.collect()
                 # Set memory fraction to prevent using all VRAM
                 torch.cuda.set_per_process_memory_fraction(0.90)
                 
@@ -89,9 +90,13 @@ class FluxModel(BaseImageModel):
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+            
+            # Validate pipeline stages before marking as initialized
+            self.validate_pipeline_stages()
                 
             self._initialized = True
             self.logger.info("FLUX model initialized successfully")
+            self.logger.info("Note: FLUX uses CPU offloading to minimize VRAM usage")
             self.logger.log_vram("After initialization")
             
             return True
@@ -115,17 +120,34 @@ class FluxModel(BaseImageModel):
             
             if path.exists() and path.is_dir():
                 # Verify it's a valid model directory
-                required_files = [
-                    'model_index.json',
-                    'unet/diffusion_pytorch_model.safetensors',
-                    'transformer/diffusion_pytorch_model.safetensors'
-                ]
+                # FLUX models have various file structures, so just check for key directories
+                required_dirs = ['transformer', 'text_encoder', 'tokenizer']
+                optional_dirs = ['text_encoder_2', 'tokenizer_2', 'vae', 'scheduler']
                 
-                if any((path / f).exists() for f in required_files):
+                # Check if model_index.json exists
+                if not (path / 'model_index.json').exists():
+                    self.logger.debug(f"No model_index.json found at {path}")
+                    continue
+                
+                # Check for required directories
+                missing_dirs = [d for d in required_dirs if not (path / d).exists()]
+                if missing_dirs:
+                    self.logger.debug(f"Missing required directories: {missing_dirs}")
+                    continue
+                
+                # Check if transformer has any model files (sharded or single)
+                transformer_dir = path / 'transformer'
+                has_model_files = any(
+                    f.name.endswith('.safetensors') or f.name.endswith('.bin')
+                    for f in transformer_dir.iterdir()
+                    if f.is_file() or f.is_symlink()
+                )
+                
+                if has_model_files:
                     self.logger.info(f"Found valid FLUX model at: {path}")
                     return str(path)
                 else:
-                    self.logger.debug(f"Path exists but appears incomplete: {path}")
+                    self.logger.debug(f"No model files found in transformer directory at {path}")
                     
         # Fallback to HuggingFace ID
         if model_paths:
@@ -156,6 +178,9 @@ class FluxModel(BaseImageModel):
         # Get generation parameters
         params = self.get_generation_params(**kwargs)
         
+        # Check disk space before generation
+        self.check_disk_space_for_generation(no_upscale=params.get('no_upscale', False))
+        
         # Use provided seed or generate random
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
@@ -166,9 +191,13 @@ class FluxModel(BaseImageModel):
         # Track timing
         start_time = time.time()
         
+        # Track temp files for cleanup
+        temp_files = []
+        temp_dirs = []
+        
         try:
             # Stage 1: Generate base image
-            stage1_result = self._generate_stage1(prompt, seed, params)
+            stage1_result = self._generate_stage1(prompt, seed, params, temp_files)
             
             # Save stage 1 if requested
             if self._should_save_stages(params):
@@ -179,7 +208,7 @@ class FluxModel(BaseImageModel):
                 )
             
             # Stage 2: Upscale to 8K
-            stage2_result = self._upscale_stage2(stage1_result['image_path'])
+            stage2_result = self._upscale_stage2(stage1_result['image_path'], temp_dirs)
             
             # Save stage 2 if requested
             if self._should_save_stages(params):
@@ -222,8 +251,26 @@ class FluxModel(BaseImageModel):
             
         except Exception as e:
             raise GenerationError(self.name, "pipeline execution", e)
+        finally:
+            # Clean up all temp files created during generation
+            for temp_file in temp_files:
+                try:
+                    if temp_file.exists():
+                        temp_file.unlink()
+                        self.logger.debug(f"Cleaned up temp file: {temp_file}")
+                except Exception as cleanup_e:
+                    self.logger.warning(f"Failed to clean up {temp_file}: {cleanup_e}")
+                    
+            for temp_dir in temp_dirs:
+                try:
+                    if temp_dir.exists():
+                        import shutil
+                        shutil.rmtree(temp_dir)
+                        self.logger.debug(f"Cleaned up temp dir: {temp_dir}")
+                except Exception as cleanup_e:
+                    self.logger.warning(f"Failed to clean up {temp_dir}: {cleanup_e}")
             
-    def _generate_stage1(self, prompt: str, seed: int, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_stage1(self, prompt: str, seed: int, params: Dict[str, Any], temp_files: List[Path]) -> Dict[str, Any]:
         """Stage 1: Generate base image at 1920x1088
         
         Args:
@@ -276,20 +323,22 @@ class FluxModel(BaseImageModel):
             )
             
         # Save stage 1 output
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        stage1_path = Path(f"/tmp/flux_stage1_{timestamp}.png")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        stage1_path = Path(tempfile.gettempdir()) / f"flux_stage1_{timestamp}.png"
         image.save(stage1_path, "PNG", quality=100)
+        # Track for cleanup
+        temp_files.append(stage1_path)
         
         self.logger.info(f"Stage 1 complete: Generated at {image.size}")
         self.logger.log_vram("After Stage 1")
         
-        return {
-            'image': image,
-            'image_path': stage1_path,
-            'size': image.size
-        }
+        return self._standardize_stage_result(
+            image_path=stage1_path,
+            image=image,
+            size=image.size
+        )
         
-    def _upscale_stage2(self, input_path: Path) -> Dict[str, Any]:
+    def _upscale_stage2(self, input_path: Path, temp_dirs: List[Path]) -> Dict[str, Any]:
         """Stage 2: Upscale to 8K using Real-ESRGAN
         
         Args:
@@ -322,17 +371,23 @@ class FluxModel(BaseImageModel):
             fp32=fp32
         )
         
+        # Track the upscaled directory for cleanup
+        output_path = Path(result['output_path'])
+        if output_path.parent.name.startswith('upscaled_'):
+            temp_dirs.append(output_path.parent)
+        
         # Load image for consistency with rest of pipeline
-        upscaled_image = Image.open(result['output_path'])
+        with Image.open(result['output_path']) as temp_image:
+            upscaled_image = temp_image.copy()  # Create a copy that persists
         
         self.logger.info(f"Stage 2 complete: Upscaled to {result['output_size']}")
         
-        return {
-            'image': upscaled_image,
-            'image_path': result['output_path'],
-            'size': result['output_size'],
-            'scale_factor': result['scale_factor']
-        }
+        return self._standardize_stage_result(
+            image_path=result['output_path'],
+            image=upscaled_image,
+            size=result['output_size'],
+            scale_factor=result['scale_factor']
+        )
         
     def _downsample_stage3(self, input_path: Path) -> Dict[str, Any]:
         """Stage 3: Downsample to 4K using Lanczos
@@ -346,7 +401,9 @@ class FluxModel(BaseImageModel):
         self.logger.log_stage("Stage 3", "Lanczos supersampling to 4K")
         
         # Load 8K image
-        image_8k = Image.open(input_path)
+        with Image.open(input_path) as temp_image:
+            # Create a copy for processing
+            image_8k = temp_image.copy()
         
         # Target 4K dimensions
         target_size = tuple(self.config['pipeline']['stage3_downsample'])
@@ -360,7 +417,7 @@ class FluxModel(BaseImageModel):
         filename = f"flux_4k_{timestamp}.png"
         
         # Use configured output path
-        output_dir = Path(config.paths.get('images_dir', '/tmp'))
+        output_dir = Path(config.paths.get('images_dir', tempfile.gettempdir()))
         output_dir.mkdir(exist_ok=True)
         
         final_path = output_dir / filename
@@ -369,19 +426,13 @@ class FluxModel(BaseImageModel):
         self.logger.info(f"Stage 3 complete: Final 4K image at {image_4k.size}")
         self.logger.info(f"Saved to: {final_path}")
         
-        # Clean up temp files
-        try:
-            if input_path.parent.name.startswith("flux_upscaled_"):
-                import shutil
-                shutil.rmtree(input_path.parent)
-        except Exception as e:
-            self.logger.debug(f"Failed to clean up temp files: {e}")
-            
-        return {
-            'image': image_4k,
-            'image_path': final_path,
-            'size': image_4k.size
-        }
+        # Cleanup now handled in finally block
+        
+        return self._standardize_stage_result(
+            image_path=final_path,
+            image=image_4k,
+            size=image_4k.size
+        )
         
         
     def get_optimal_prompt(self, theme: Dict, weather: Dict, context: Dict) -> str:
@@ -407,8 +458,8 @@ class FluxModel(BaseImageModel):
         """
         return [
             "flux_generation",      # 1920x1088
-            "realesrgan_8k",       # 4x to 7680x4352  
-            "lanczos_4k"          # Downsample to 3840x2160
+            "flux_upscale",        # 4x to 7680x4352  
+            "flux_downsample"      # Downsample to 3840x2160
         ]
         
     def validate_environment(self) -> Tuple[bool, str]:
@@ -467,62 +518,4 @@ class FluxModel(BaseImageModel):
             'time_minutes': 15
         }
         
-    def _should_save_stages(self, params: Dict[str, Any]) -> bool:
-        """Check if intermediate stages should be saved
         
-        Args:
-            params: Generation parameters
-            
-        Returns:
-            True if stages should be saved
-        """
-        # Check parameter override first
-        if 'save_stages' in params:
-            return params['save_stages']
-            
-        # Check model config
-        pipeline_config = self.config.get('pipeline', {})
-        if 'save_intermediates' in pipeline_config:
-            return pipeline_config['save_intermediates']
-            
-        # Check system config
-        config = get_config()
-        if config.system and 'generation' in config.system:
-            return config.system['generation'].get('save_intermediate_stages', False)
-            
-        return False
-        
-    def _save_intermediate(self, image: Image.Image, stage_name: str, prompt: str) -> Path:
-        """Save intermediate stage image
-        
-        Args:
-            image: PIL Image to save
-            stage_name: Name of the stage
-            prompt: Generation prompt for filename
-            
-        Returns:
-            Path where image was saved
-        """
-        config = get_config()
-        file_manager = get_file_manager()
-        
-        # Get intermediate directory from config
-        if config.system and 'generation' in config.system:
-            intermediate_dir = config.system['generation'].get('intermediate_dir', 'stages')
-        else:
-            intermediate_dir = 'stages'
-            
-        # Create stage directory
-        stage_dir = file_manager.get_images_dir() / intermediate_dir
-        stage_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Create filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        prompt_excerpt = file_manager.sanitize_filename(prompt[:50])
-        filename = f"{self.model_name}_{stage_name}_{timestamp}_{prompt_excerpt}.png"
-        
-        path = stage_dir / filename
-        image.save(path, "PNG", quality=100, optimize=False)
-        
-        self.logger.info(f"Saved intermediate stage: {path}")
-        return path

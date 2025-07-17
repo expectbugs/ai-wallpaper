@@ -60,18 +60,39 @@ class WeatherCache:
             except:
                 pass
                 
-        # Remove corrupted cache
-        if self.cache_file.exists():
-            try:
-                self.cache_file.unlink()
-            except:
-                pass
+        # Remove corrupted cache and all shelve-related files
+        # Shelve can create .bak, .dat, .dir, .db files
+        cache_patterns = [
+            self.cache_file,
+            self.cache_file.with_suffix('.bak'),
+            self.cache_file.with_suffix('.dat'),
+            self.cache_file.with_suffix('.dir'),
+            self.cache_file.with_suffix('.db'),
+            # Also check for files with the base name + extensions
+            self.cache_dir / f"{self.cache_file.name}.bak",
+            self.cache_dir / f"{self.cache_file.name}.dat",
+            self.cache_dir / f"{self.cache_file.name}.dir",
+            self.cache_dir / f"{self.cache_file.name}.db"
+        ]
+        
+        for cache_path in cache_patterns:
+            if cache_path.exists():
+                try:
+                    cache_path.unlink()
+                    self.logger.debug(f"Removed cache file: {cache_path}")
+                except Exception as e:
+                    self.logger.warning(f"Failed to remove {cache_path}: {e}")
                 
+        # Now try to remove the directory if empty
         if self.cache_dir.exists():
             try:
-                shutil.rmtree(self.cache_dir)
-            except:
-                pass
+                # Only remove if directory is empty
+                if not any(self.cache_dir.iterdir()):
+                    self.cache_dir.rmdir()
+                else:
+                    self.logger.warning(f"Cache directory not empty, keeping: {self.cache_dir}")
+            except Exception as e:
+                self.logger.warning(f"Failed to remove cache directory: {e}")
                 
         # Create fresh cache
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -208,7 +229,8 @@ class WeatherClient:
                         f"Rate limited, waiting {delay}s (attempt {attempt + 1}/{self.max_retries})"
                     )
                     time.sleep(delay)
-                    delay *= 2
+                    # Double the delay but cap at 5 minutes
+                    delay = min(delay * 2, 300)
                     continue
                     
                 response.raise_for_status()

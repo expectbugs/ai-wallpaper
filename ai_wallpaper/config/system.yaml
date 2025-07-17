@@ -14,7 +14,6 @@ system:
   
 weather:
   # Coordinates for weather fetching
-  # Default: Elkhorn, WI
   latitude: 42.6728
   longitude: -88.5443
   
@@ -32,7 +31,7 @@ weather:
   
 generation:
   # Whether to save intermediate stage images
-  save_intermediate_stages: false
+  save_intermediate_stages: true
   
   # Directory for intermediate images (relative to images_dir)
   intermediate_dir: "stages"
@@ -48,4 +47,4 @@ generation:
   default_seed: null
   
   # Show prominent seed display after generation
-  show_seed_prominently: true
+  show_seed_prominently: false

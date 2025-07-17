@@ -156,7 +156,7 @@ class ThemeSelector:
         return self._weighted_random_choice(themes, weights)
         
     def _weighted_random_choice(self, items: List[Any], weights: List[float]) -> Any:
-        """Select random item based on weights
+        """Select random item based on weights with float precision handling
         
         Args:
             items: List of items to choose from
@@ -171,8 +171,41 @@ class ThemeSelector:
         if len(items) != len(weights):
             raise ValueError("Items and weights length mismatch")
             
-        # Use random.choices for weighted selection
-        return random.choices(items, weights=weights, k=1)[0]
+        # Handle float precision issues
+        # 1. Filter out effectively zero weights (below epsilon)
+        epsilon = 1e-10
+        filtered_items = []
+        filtered_weights = []
+        
+        for item, weight in zip(items, weights):
+            if weight > epsilon:
+                filtered_items.append(item)
+                filtered_weights.append(weight)
+                
+        if not filtered_items:
+            # If all weights are effectively zero, fall back to uniform selection
+            self.logger.warning("All weights effectively zero, using uniform selection")
+            return random.choice(items)
+            
+        # 2. Normalize weights to sum to exactly 1.0
+        total_weight = sum(filtered_weights)
+        if total_weight <= 0:
+            raise ValueError(f"Total weight is non-positive: {total_weight}")
+            
+        normalized_weights = [w / total_weight for w in filtered_weights]
+        
+        # 3. Convert to integer weights to avoid float precision in random.choices
+        # Scale up by 1,000,000 for 6 decimal places of precision
+        scale_factor = 1_000_000
+        int_weights = [int(round(w * scale_factor)) for w in normalized_weights]
+        
+        # Ensure at least one weight is non-zero after rounding
+        if sum(int_weights) == 0:
+            # Give each item at least weight 1
+            int_weights = [1] * len(filtered_items)
+            
+        # Use random.choices with integer weights
+        return random.choices(filtered_items, weights=int_weights, k=1)[0]
         
     def _should_apply_chaos(self) -> bool:
         """Determine if chaos mode should be applied

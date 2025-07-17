@@ -15,8 +15,8 @@ models:
       dimensions: [1920, 1088]  # Must be divisible by 16
       scheduler: FlowMatchEulerDiscreteScheduler  # REQUIRED for FLUX
       torch_dtype: bfloat16
-      steps_range: [50, 100]  # For random selection
-      guidance_range: [2.0, 4.0]
+      steps_range: [95, 100]  # For random selection
+      guidance_range: [3.0, 4.0]
       max_sequence_length: 512
       
     pipeline:
@@ -108,25 +108,77 @@ models:
   sdxl:
     class: SdxlModel
     enabled: true
-    display_name: "SDXL + LoRA"
-    model_path: "stabilityai/stable-diffusion-xl-base-1.0"
+    display_name: "SDXL Ultimate Quality"
+    model_path: "stabilityai/stable-diffusion-xl-base-1.0"  # Fallback
+    checkpoint_path: "/home/user/ai-wallpaper/models/sdxl-base/sd_xl_base_1.0.safetensors"  # Primary
+    refiner_model_path: "stabilityai/stable-diffusion-xl-refiner-1.0"  # Fallback
+    refiner_checkpoint_path: "/home/user/ai-wallpaper/models/sdxl-refiner/sd_xl_refiner_1.0.safetensors"  # Primary
     
     generation:
-      dimensions: [1920, 1024]  # Corrected from plan
-      scheduler_options:  # For random selection
-        - DPMSolverMultistepScheduler
-        - EulerAncestralDiscreteScheduler
-        - DDIMScheduler
+      dimensions: [1344, 768]  # Native SDXL 16:9 training resolution (exactly 16:9)
+      scheduler_options:  # Prioritized for maximum quality
+        - HeunDiscreteScheduler         # Best for high-detail, quality-focused
+        - KDPM2DiscreteScheduler        # DPM++ 2M equivalent, excellent quality
+        - DPMSolverMultistepScheduler   # Good balance of speed and quality
+      scheduler_kwargs:
+        use_karras_sigmas: true  # Improves quality and prevents artifacts
       torch_dtype: float16
-      steps_range: [30, 75]
-      guidance_range: [5.0, 12.0]
+      steps_range: [95, 100]     # Maximum quality range
+      guidance_range: [6.8, 7.0]  # Optimal sweet spot
       
     pipeline:
-      type: "sdxl_2x"  # Simple 2x upscale to 4K
-      upscale_factor: 2
-      final_resolution: [3840, 2048]  # Will be cropped to 3840x2160
-      enable_img2img_refine: true
-      refine_strength_range: [0.2, 0.4]
+      type: "sdxl_ultimate"  # Multi-stage progressive upscaling
+      stages:
+        # Stage 1: Base generation with ensemble of expert denoisers
+        base_generation:
+          enable_refiner: true
+          refiner_switch_at: 0.8  # Base: steps 1-80, Refiner: 81-100
+          
+        # Stage 2: Initial refinement pass
+        initial_refinement:
+          enabled: true
+          denoising_strength: 0.35
+          steps: 50
+          use_refiner_model: true
+          
+        # Stage 3: Progressive upscaling
+        progressive_upscale:
+          # First upscale: 1.5x to 2016x1152
+          stage1:
+            scale: 1.5
+            denoising_strength: 0.25
+            steps: 40
+            use_base_model: true
+          # Second upscale: 1.5x to 3024x1728  
+          stage2:
+            scale: 1.5
+            denoising_strength: 0.20
+            steps: 30
+            use_refiner_model: true
+            
+        # Stage 4: Real-ESRGAN enhancement
+        realesrgan:
+          scale: 2  # 3024x1728 -> 6048x3456
+          model: "RealESRGAN_x4plus"
+          tile_size: 512
+          tile_padding: 32
+          use_fp32: true  # Maximum precision
+          
+        # Stage 5: Final processing
+        final_processing:
+          target_resolution: [3840, 2160]
+          downsampling_method: "lanczos"  # Highest quality
+          
+      # Optional multi-pass refinement (can be enabled for extreme quality)
+      multi_pass_refinement:
+        enabled: true  # Set to true for absolute maximum quality
+        passes:
+          - denoising: 0.4
+            steps: 30
+          - denoising: 0.25
+            steps: 20
+          - denoising: 0.15
+            steps: 15
       
     lora:
       enabled: true
@@ -155,9 +207,9 @@ random_selection:
   enabled: true
   model_weights:
     flux: 35
-    dalle3: 25
-    gpt_image_1: 25
-    sdxl: 15
+    dalle3: 10
+    gpt_image_1: 5
+    sdxl: 50
     
   # Prevent invalid combinations
   exclusions:
@@ -180,4 +232,3 @@ quality:
 # API keys (loaded from environment)
 api_keys:
   openai: "${OPENAI_API_KEY}"
-  anthropic: "${ANTHROPIC_API_KEY}"  # For future use

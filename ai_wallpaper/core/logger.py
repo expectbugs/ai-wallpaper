@@ -7,6 +7,7 @@ Follows FAIL LOUD philosophy - all errors are verbose and visible
 import os
 import sys
 import logging
+import logging.handlers
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Any
@@ -100,13 +101,32 @@ class AIWallpaperLogger:
                 log_dir = Path(log_path).parent
                 log_dir.mkdir(parents=True, exist_ok=True)
                 
-                # Create file handler
-                file_handler = logging.FileHandler(log_path, encoding='utf-8')
+                # Get rotation settings from config
+                file_config = log_config.get('file', {})
+                max_size_mb = file_config.get('max_size_mb', 100)
+                backup_count = file_config.get('backup_count', 7)
+                
+                # Convert MB to bytes
+                max_bytes = max_size_mb * 1024 * 1024
+                
+                # Create rotating file handler
+                file_handler = logging.handlers.RotatingFileHandler(
+                    log_path, 
+                    maxBytes=max_bytes,
+                    backupCount=backup_count,
+                    encoding='utf-8'
+                )
                 file_formatter = logging.Formatter(
                     self._get_format_string(format_str)
                 )
                 file_handler.setFormatter(file_formatter)
                 self.logger.addHandler(file_handler)
+                
+                # Log rotation settings for transparency
+                self.logger.debug(
+                    f"Log rotation enabled: max_size={max_size_mb}MB, "
+                    f"backup_count={backup_count}"
+                )
                 
         except Exception as e:
             # If logger setup fails, print to stderr and continue
@@ -218,10 +238,44 @@ class AIWallpaperLogger:
         """
         try:
             import torch
+            import subprocess
+            
+            # Get VRAM from nvidia-smi for total system usage
+            try:
+                result = subprocess.run(
+                    ['nvidia-smi', '--query-gpu=memory.used,memory.total', '--format=csv,noheader,nounits'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    used, total = map(int, result.stdout.strip().split(','))
+                    used_gb = used / 1024
+                    total_gb = total / 1024
+                    
+                    # Also get PyTorch's view if available
+                    if torch.cuda.is_available():
+                        torch_allocated = torch.cuda.memory_allocated() / 1024**3
+                        torch_reserved = torch.cuda.memory_reserved() / 1024**3
+                        
+                        msg = f"VRAM Usage: {used_gb:.1f}GB/{total_gb:.1f}GB total system usage"
+                        if torch_allocated > 0 or torch_reserved > 0:
+                            msg += f" (PyTorch: {torch_allocated:.1f}GB allocated, {torch_reserved:.1f}GB reserved)"
+                    else:
+                        msg = f"VRAM Usage: {used_gb:.1f}GB/{total_gb:.1f}GB total system usage"
+                        
+                    if stage:
+                        msg = f"[{stage}] {msg}"
+                    self.info(msg)
+                    return
+            except:
+                pass  # Fall back to PyTorch only
+                
+            # Fallback to PyTorch only
             if torch.cuda.is_available():
                 allocated = torch.cuda.memory_allocated() / 1024**3
                 reserved = torch.cuda.memory_reserved() / 1024**3
-                msg = f"VRAM Usage: {allocated:.2f}GB allocated, {reserved:.2f}GB reserved"
+                msg = f"VRAM Usage: {allocated:.1f}GB allocated, {reserved:.1f}GB reserved"
                 if stage:
                     msg = f"[{stage}] {msg}"
                 self.info(msg)

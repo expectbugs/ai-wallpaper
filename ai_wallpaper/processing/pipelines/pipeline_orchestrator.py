@@ -5,6 +5,7 @@ Manages model-specific pipelines at maximum quality
 """
 
 import time
+import tempfile
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Type
 from abc import ABC, abstractmethod
@@ -92,24 +93,23 @@ class Lanczos4KStage(PipelineStage):
         from PIL import Image
         
         # Load image
-        image = Image.open(input_path)
-        
-        # High-quality downsample
-        image_4k = image.resize(self.target_size, Image.Resampling.LANCZOS)
-        
-        # Save with maximum quality
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        config = get_config()
-        output_dir = Path(config.paths.get('images_dir', '/home/user/ai-wallpaper/images'))
-        output_dir.mkdir(exist_ok=True)
-        
-        output_path = output_dir / f"final_4k_{timestamp}.png"
-        image_4k.save(output_path, "PNG", quality=100, optimize=False)
-        
-        return {
-            'image_path': output_path,
-            'size': image_4k.size
-        }
+        with Image.open(input_path) as image:
+            # High-quality downsample
+            image_4k = image.resize(self.target_size, Image.Resampling.LANCZOS)
+            
+            # Save with maximum quality
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            config = get_config()
+            output_dir = Path(config.paths.get('images_dir', '/home/user/ai-wallpaper/images'))
+            output_dir.mkdir(exist_ok=True)
+            
+            output_path = output_dir / f"final_4k_{timestamp}.png"
+            image_4k.save(output_path, "PNG", quality=100, optimize=False)
+            
+            return {
+                'image_path': output_path,
+                'size': image_4k.size
+            }
         
     def get_name(self) -> str:
         return "lanczos_4k"
@@ -126,22 +126,22 @@ class CropStage(PipelineStage):
         """Crop image to 16:9"""
         from PIL import Image
         
-        image = Image.open(input_path)
-        width, height = image.size
-        
-        # Crop top and bottom
-        top_crop = self.crop_pixels[0]
-        bottom_crop = self.crop_pixels[1]
-        
-        cropped = image.crop((0, top_crop, width, height - bottom_crop))
-        
-        # Save cropped image
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        cropped_path = input_path.parent / f"stage_cropped_{timestamp}.png"
-        cropped.save(cropped_path, "PNG", quality=100)
-        
-        return {
-            'image_path': cropped_path,
+        with Image.open(input_path) as image:
+            width, height = image.size
+            
+            # Crop top and bottom
+            top_crop = self.crop_pixels[0]
+            bottom_crop = self.crop_pixels[1]
+            
+            cropped = image.crop((0, top_crop, width, height - bottom_crop))
+            
+            # Save cropped image
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            cropped_path = input_path.parent / f"stage_cropped_{timestamp}.png"
+            cropped.save(cropped_path, "PNG", quality=100)
+            
+            return {
+                'image_path': cropped_path,
             'size': cropped.size,
             'crop_applied': self.crop_pixels
         }
@@ -297,7 +297,7 @@ class PipelineOrchestrator:
             
         # Create stage output directory
         config = get_config()
-        stage_dir = Path(config.paths.get('images_dir', '/tmp')) / "stages" / datetime.now().strftime("%Y%m%d_%H%M%S")
+        stage_dir = Path(config.paths.get('images_dir', tempfile.gettempdir())) / "stages" / datetime.now().strftime("%Y%m%d_%H%M%S")
         stage_dir.mkdir(parents=True, exist_ok=True)
         
         # Copy with stage name

@@ -7,6 +7,7 @@ All prompt generation strategies inherit from this base
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional
 from pathlib import Path
+import fcntl
 
 from ..core import get_logger, get_config
 
@@ -94,9 +95,10 @@ ARTISTIC STYLE: {styles}
 COLOR PALETTE: {colors}
 WEATHER INTEGRATION: Current {weather.get('condition', 'clear')} conditions with {weather.get('mood', 'neutral')} atmosphere
 
-Create a desktop wallpaper that combines these elements in an unexpected, creative way.
-The image should tell a visual story incorporating the weather naturally into the theme.
+Create a prompt for an amazing high-quality image that combines these elements in an unexpected, creative way.
+The image should incorporate the weather naturally into the theme.
 Focus on photorealistic quality with rich detail and perfect composition.
+Keep the image prompt under 65 words.
 """
         
         return instruction.strip()
@@ -209,19 +211,28 @@ Focus on photorealistic quality with rich detail and perfect composition.
             # Ensure directory exists
             history_file.parent.mkdir(parents=True, exist_ok=True)
             
-            # Check if file needs newline
+            # Append prompt with file locking to prevent concurrent write corruption
+            # First check if file needs newline by reading in binary mode
             needs_newline = False
             if history_file.exists() and history_file.stat().st_size > 0:
                 with open(history_file, 'rb') as f:
                     f.seek(-1, 2)
                     last_char = f.read(1)
                     needs_newline = last_char != b'\n'
-                    
-            # Append prompt
+            
+            # Now append in text mode
             with open(history_file, 'a') as f:
-                if needs_newline:
-                    f.write('\n')
-                f.write(prompt + '\n')
+                try:
+                    # Acquire exclusive lock
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                    
+                    if needs_newline:
+                        f.write('\n')
+                    f.write(prompt + '\n')
+                    
+                finally:
+                    # Release lock (also happens automatically when file closes)
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
                 
             self.logger.info("Saved prompt to history")
             

@@ -101,7 +101,7 @@ performance:
     
   # CPU settings
   cpu:
-    threads: 8  # Number of threads for CPU operations
+    threads: 12  # Number of threads for CPU operations
     
   # Memory management
   cleanup:
@@ -121,11 +121,3 @@ logging:
   console:
     enabled: true
     color: true
-
-# Notification settings (for future implementation)
-notifications:
-  enabled: false
-  methods:
-    desktop: true  # Desktop notifications
-    sound: false   # Play sound on completion
-    webhook: null  # Discord/Slack webhook URL

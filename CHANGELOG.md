@@ -234,3 +234,50 @@
 ### Enhanced
 - Theme lookup system with find_theme_by_name() function
 - Theme override validation with proper error handling
+
+---
+
+## [4.1.0] - 2025-07-16
+
+### Fixed
+- 33 critical bugs across all system components
+- VRAM detection now shows accurate system usage via nvidia-smi
+- FLUX model detection improved for various file structures
+- Virtual environment activation for Real-ESRGAN execution
+- Prompt history file locking and corruption prevention
+- Memory cleanup order standardized across models
+- Resource manager registration leaks
+- Scheduler compatibility validation
+- Pipeline stage validation for all models
+- Quote validation messaging enhanced
+- Log rotation implementation (100MB, 7 backups)
+- Temporary file cleanup in all error paths
+- Desktop environment detection race conditions
+- Disk space validation before generation
+- API key format validation
+- Weather cache corruption recovery
+- Thread safety for configuration singleton
+- Subprocess zombie process prevention
+- Float precision in theme weight selection
+- XFCE multi-monitor property validation
+
+### Enhanced
+- Removed all prompt truncation (display and internal)
+- Comprehensive error handling with detailed messages
+- Proper resource cleanup and VRAM management
+- Fail-loud philosophy consistently applied
+- File handle management using context managers
+- Upscaler tile size considers available VRAM
+- Weather API backoff with maximum delay caps
+- LoRA file validation before loading
+- Metadata save failures now raise exceptions
+- Special character handling in prompts
+- Hardcoded /tmp paths replaced with tempfile
+
+### Added
+- Save intermediate stages functionality
+- Standardized stage result dictionaries
+- Pipeline stage validation system
+- Concurrent write protection with file locking
+- VRAM-aware processing optimizations
+- Comprehensive testing suite verification

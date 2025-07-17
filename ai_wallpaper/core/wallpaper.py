@@ -7,6 +7,7 @@ Handles desktop wallpaper setting across different desktop environments
 import os
 import sys
 import subprocess
+import time
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
@@ -45,18 +46,30 @@ class WallpaperSetter:
         # Try to detect desktop environment
         commands = self.de_config.get('commands', {})
         
+        # Ensure DISPLAY is set before any detection
+        env = os.environ.copy()
+        if 'DISPLAY' not in env:
+            # Try common display values
+            for display in [':0', ':0.0', ':1', ':1.0']:
+                if os.path.exists(f'/tmp/.X11-unix/X{display.strip(":")}'):
+                    env['DISPLAY'] = display
+                    self.logger.debug(f"Set DISPLAY to {display}")
+                    break
+            else:
+                # Default to :0 if no X11 socket found
+                env['DISPLAY'] = ':0'
+                self.logger.warning("No X11 socket found, defaulting DISPLAY to :0")
+        
+        # Add synchronization delay between detection attempts
+        detection_delay = 0.1  # 100ms between attempts
+        
         for de_name, de_info in commands.items():
             detect_cmd = de_info.get('detect')
             if not detect_cmd:
                 continue
                 
             try:
-                # Set up environment
-                env = os.environ.copy()
-                if de_name in ['xfce', 'gnome', 'kde', 'mate', 'cinnamon'] and 'DISPLAY' not in env:
-                    env['DISPLAY'] = ':0'
-                    
-                # Run detection command
+                # Run detection command with proper environment
                 result = subprocess.run(
                     detect_cmd,
                     shell=True,
@@ -70,6 +83,11 @@ class WallpaperSetter:
                     self.logger.info(f"Detected desktop environment: {de_name}")
                     return de_name
                     
+                # Add delay to prevent race conditions
+                time.sleep(detection_delay)
+                    
+            except subprocess.TimeoutExpired:
+                self.logger.debug(f"Detection timeout for {de_name}")
             except Exception as e:
                 self.logger.debug(f"Detection failed for {de_name}: {e}")
                 
@@ -228,9 +246,16 @@ class WallpaperSetter:
             
         self.logger.info(f"Found {len(backdrop_props)} backdrop properties")
         
-        # Set wallpaper on all properties
+        # Validate and set wallpaper on all properties
+        valid_props_set = 0
+        
         for prop in backdrop_props:
             try:
+                # Validate property corresponds to actual monitor/workspace
+                if not self._validate_xfce_property(prop, env):
+                    self.logger.warning(f"Skipping invalid property: {prop}")
+                    continue
+                
                 # Set image path
                 cmd = [
                     "xfconf-query",
@@ -251,20 +276,34 @@ class WallpaperSetter:
                     self.logger.warning(f"Failed to set {prop}: {result.stderr}")
                     continue
                     
-                # Set image style (4 = Scaled)
+                # Check if style property exists before setting
                 style_prop = prop.replace("/last-image", "/image-style")
-                style_cmd = [
-                    "xfconf-query",
-                    "-c", "xfce4-desktop",
-                    "-p", style_prop,
-                    "-s", "4"
-                ]
-                
-                subprocess.run(style_cmd, env=env, timeout=5)
+                if self._xfce_property_exists(style_prop, env):
+                    # Set image style (4 = Scaled)
+                    style_cmd = [
+                        "xfconf-query",
+                        "-c", "xfce4-desktop",
+                        "-p", style_prop,
+                        "-s", "4"
+                    ]
+                    
+                    subprocess.run(style_cmd, env=env, timeout=5)
+                else:
+                    self.logger.debug(f"Style property {style_prop} does not exist, skipping")
+                    
                 self.logger.debug(f"Set wallpaper for {prop}")
+                valid_props_set += 1
                 
             except Exception as e:
                 self.logger.warning(f"Error setting {prop}: {e}")
+                
+        # Ensure at least one property was set
+        if valid_props_set == 0:
+            raise WallpaperError(
+                "xfce",
+                "xfconf-query",
+                Exception("No valid XFCE properties could be set")
+            )
                 
         # Reload xfdesktop
         try:
@@ -407,6 +446,75 @@ class WallpaperSetter:
         # No specific verifier available
         self.logger.info("No verification method available for this desktop environment")
         return True
+        
+    def _validate_xfce_property(self, prop: str, env: Dict[str, str]) -> bool:
+        """Validate that an XFCE property corresponds to a real monitor/workspace
+        
+        Args:
+            prop: Property path to validate
+            env: Environment variables
+            
+        Returns:
+            True if property is valid
+        """
+        # Extract monitor and workspace from property path
+        # Format: /backdrop/screen0/monitorXXX/workspace0/last-image
+        parts = prop.split('/')
+        if len(parts) < 5:
+            return False
+            
+        # Check if property exists by querying it
+        try:
+            cmd = [
+                "xfconf-query",
+                "-c", "xfce4-desktop",
+                "-p", prop
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=2
+            )
+            
+            # Property exists if query returns 0 (even if value is empty)
+            return result.returncode == 0
+            
+        except Exception:
+            return False
+            
+    def _xfce_property_exists(self, prop: str, env: Dict[str, str]) -> bool:
+        """Check if an XFCE property exists
+        
+        Args:
+            prop: Property path to check
+            env: Environment variables
+            
+        Returns:
+            True if property exists
+        """
+        try:
+            cmd = [
+                "xfconf-query",
+                "-c", "xfce4-desktop",
+                "-p", prop
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=2
+            )
+            
+            # Property exists if return code is 0
+            return result.returncode == 0
+            
+        except Exception:
+            return False
 
 # Global wallpaper setter instance
 _wallpaper_setter: Optional[WallpaperSetter] = None

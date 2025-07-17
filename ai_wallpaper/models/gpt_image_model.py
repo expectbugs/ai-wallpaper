@@ -13,6 +13,7 @@ import base64
 import random
 import requests
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Dict, Any, Tuple, Optional, List
 from datetime import datetime
@@ -20,7 +21,7 @@ from PIL import Image
 
 from .base_model import BaseImageModel
 from ..core import get_logger, get_config
-from ..core.exceptions import ModelError, GenerationError, UpscalerError, APIError
+from ..core.exceptions import ModelError, ModelLoadError, GenerationError, UpscalerError, APIError
 
 class GptImageModel(BaseImageModel):
     """GPT-Image-1 implementation with two API variants"""
@@ -58,6 +59,21 @@ class GptImageModel(BaseImageModel):
         # Default to Responses API (gpt-4o) as it's more reliable
         return True
         
+    def _validate_api_key(self, api_key: str) -> bool:
+        """Validate OpenAI API key format
+        
+        Args:
+            api_key: API key to validate
+            
+        Returns:
+            True if valid format
+        """
+        import re
+        # OpenAI API keys start with 'sk-' followed by alphanumeric characters, hyphens, and underscores
+        # Project keys start with 'sk-proj-' 
+        pattern = r'^sk-[a-zA-Z0-9_-]{32,}$|^sk-proj-[a-zA-Z0-9_-]{32,}$'
+        return bool(re.match(pattern, api_key))
+        
     def initialize(self) -> bool:
         """Initialize GPT-Image-1 model and verify requirements
         
@@ -72,6 +88,14 @@ class GptImageModel(BaseImageModel):
                 raise ModelError(
                     "GPT-Image-1 requires OPENAI_API_KEY environment variable.\n"
                     "Please set: export OPENAI_API_KEY='your-api-key-here'"
+                )
+            
+            # Validate API key format
+            if not self._validate_api_key(self.api_key):
+                raise ModelError(
+                    "Invalid OpenAI API key format.\n"
+                    "API key should start with 'sk-' followed by alphanumeric characters.\n"
+                    "Please check your OPENAI_API_KEY environment variable."
                 )
                 
             # Verify Real-ESRGAN is available
@@ -88,6 +112,9 @@ class GptImageModel(BaseImageModel):
                         "OpenAI Python package required for Responses API.\n"
                         "Please install: pip install openai>=1.0"
                     )
+                    
+            # Validate pipeline stages configuration before marking as initialized
+            self.validate_pipeline_stages()
                     
             self._initialized = True
             self.logger.info("GPT-Image-1 model initialized successfully")
@@ -113,6 +140,9 @@ class GptImageModel(BaseImageModel):
         # Get generation parameters
         params = self.get_generation_params(**kwargs)
         
+        # Check disk space before generation
+        self.check_disk_space_for_generation(no_upscale=params.get('no_upscale', False))
+        
         # Use provided seed for filename generation
         if seed is None:
             seed = random.randint(0, 2**32 - 1)
@@ -130,14 +160,40 @@ class GptImageModel(BaseImageModel):
             else:
                 stage1_result = self._generate_direct_api(prompt, params)
                 
+            # Save intermediate if requested
+            if self._should_save_stages(params):
+                stage1_result['saved_path'] = self._save_intermediate(
+                    stage1_result['image'], 'stage1_generated', prompt
+                )
+                
             # Stage 2: Crop to 16:9
             stage2_result = self._crop_stage2(stage1_result['image_path'])
+            
+            # Save intermediate if requested
+            if self._should_save_stages(params):
+                stage2_result['saved_path'] = self._save_intermediate(
+                    stage2_result['image'], 'stage2_cropped', prompt
+                )
             
             # Stage 3: Upscale 4x
             stage3_result = self._upscale_stage3(stage2_result['image_path'])
             
+            # Save intermediate if requested
+            if self._should_save_stages(params):
+                # Open the upscaled image to save intermediate
+                with Image.open(stage3_result['image_path']) as img:
+                    stage3_result['saved_path'] = self._save_intermediate(
+                        img.copy(), 'stage3_upscaled', prompt
+                    )
+            
             # Stage 4: Downsample to 4K
             stage4_result = self._downsample_stage4(stage3_result['image_path'])
+            
+            # Save intermediate if requested
+            if self._should_save_stages(params):
+                stage4_result['saved_path'] = self._save_intermediate(
+                    stage4_result['image'], 'stage4_final', prompt
+                )
             
             # Prepare final results
             duration = time.time() - start_time
@@ -258,8 +314,8 @@ class GptImageModel(BaseImageModel):
         try:
             image_bytes = base64.b64decode(image_base64)
             
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            stage1_path = Path(f"/tmp/gpt_stage1_{timestamp}.png")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            stage1_path = Path(tempfile.gettempdir()) / f"gpt_stage1_{timestamp}.png"
             
             with open(stage1_path, 'wb') as f:
                 f.write(image_bytes)
@@ -270,8 +326,12 @@ class GptImageModel(BaseImageModel):
             raise GenerationError(self.name, "Stage 1", e)
             
         # Verify image
-        image = Image.open(stage1_path)
-        self.logger.info(f"Stage 1 complete: Generated at {image.size}")
+        with Image.open(stage1_path) as temp_image:
+            image_size = temp_image.size
+            # Create a copy for return
+            image = temp_image.copy()
+            
+        self.logger.info(f"Stage 1 complete: Generated at {image_size}")
         
         return {
             'image': image,
@@ -387,8 +447,8 @@ class GptImageModel(BaseImageModel):
             
         # Save image
         try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            stage1_path = Path(f"/tmp/gpt_stage1_{timestamp}.png")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            stage1_path = Path(tempfile.gettempdir()) / f"gpt_stage1_{timestamp}.png"
             
             with open(stage1_path, 'wb') as f:
                 f.write(image_bytes)
@@ -399,8 +459,12 @@ class GptImageModel(BaseImageModel):
             raise GenerationError(self.name, "Stage 1", e)
             
         # Verify image
-        image = Image.open(stage1_path)
-        self.logger.info(f"Stage 1 complete: Generated at {image.size}")
+        with Image.open(stage1_path) as temp_image:
+            image_size = temp_image.size
+            # Create a copy for return
+            image = temp_image.copy()
+            
+        self.logger.info(f"Stage 1 complete: Generated at {image_size}")
         
         return {
             'image': image,
@@ -421,8 +485,10 @@ class GptImageModel(BaseImageModel):
         self.logger.log_stage("Stage 2", "Cropping to 16:9 aspect ratio")
         
         # Load image
-        image = Image.open(input_path)
-        original_size = image.size
+        with Image.open(input_path) as temp_image:
+            original_size = temp_image.size
+            # Create a copy for processing
+            image = temp_image.copy()
         
         # Get crop settings from config
         crop_pixels = self.config['pipeline'].get('crop_pixels', [80, 80])
@@ -439,8 +505,8 @@ class GptImageModel(BaseImageModel):
         self.logger.info(f"Aspect ratio: {ratio:.4f} (expected: {expected_ratio:.4f})")
         
         # Save cropped image
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        stage2_path = Path(f"/tmp/gpt_stage2_{timestamp}.png")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        stage2_path = Path(tempfile.gettempdir()) / f"gpt_stage2_{timestamp}.png"
         image_cropped.save(stage2_path, "PNG", quality=100)
         
         self.logger.info(f"Stage 2 complete: Cropped to {image_cropped.size}")
@@ -467,7 +533,7 @@ class GptImageModel(BaseImageModel):
         realesrgan_script = self._find_realesrgan()
         
         # Prepare paths
-        temp_output_dir = Path(f"/tmp/gpt_upscaled_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        temp_output_dir = Path(tempfile.gettempdir()) / f"gpt_upscaled_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
         temp_output_dir.mkdir(exist_ok=True)
         
         # Build command
@@ -507,7 +573,13 @@ class GptImageModel(BaseImageModel):
                 self.logger.debug(f"Real-ESRGAN output: {result.stdout}")
                 
         except subprocess.CalledProcessError as e:
-            raise UpscalerError(str(input_path), e)
+            # Include stderr in the error for better debugging
+            error_msg = f"Real-ESRGAN failed with exit code {e.returncode}"
+            if e.stderr:
+                error_msg += f"\nError output: {e.stderr}"
+            if e.stdout:
+                error_msg += f"\nStandard output: {e.stdout}"
+            raise UpscalerError(str(input_path), Exception(error_msg))
         except subprocess.TimeoutExpired:
             raise UpscalerError(str(input_path), Exception("Upscaling timed out"))
             
@@ -519,23 +591,28 @@ class GptImageModel(BaseImageModel):
         output_path = output_files[0]
         
         # Load and verify
-        upscaled_image = Image.open(output_path)
-        
-        # Expected: 1536x864 * 4 = 6144x3456
+        with Image.open(input_path) as input_img:
+            input_size = input_img.size
+            
+        with Image.open(output_path) as temp_image:
+            upscaled_size = temp_image.size
+            
+        # Expected: input * 4
         expected_size = (
-            Image.open(input_path).size[0] * 4,
-            Image.open(input_path).size[1] * 4
+            input_size[0] * 4,
+            input_size[1] * 4
         )
         
-        if upscaled_image.size != expected_size:
-            self.logger.warning(f"Unexpected size: {upscaled_image.size}, expected {expected_size}")
+        if upscaled_size != expected_size:
+            self.logger.warning(f"Unexpected size: {upscaled_size}, expected {expected_size}")
             
-        self.logger.info(f"Stage 3 complete: Upscaled to {upscaled_image.size}")
+        self.logger.info(f"Stage 3 complete: Upscaled to {upscaled_size}")
         
+        # Note: Not loading image here since it's not needed by caller
+        # Caller only uses image_path to pass to next stage
         return {
-            'image': upscaled_image,
             'image_path': output_path,
-            'size': upscaled_image.size,
+            'size': upscaled_size,
             'scale_factor': 4
         }
         
@@ -551,7 +628,9 @@ class GptImageModel(BaseImageModel):
         self.logger.log_stage("Stage 4", "Lanczos downsampling to 4K")
         
         # Load upscaled image
-        image_upscaled = Image.open(input_path)
+        with Image.open(input_path) as temp_image:
+            # Create a copy for processing
+            image_upscaled = temp_image.copy()
         
         # Target 4K dimensions
         target_size = tuple(self.config['pipeline']['final_resolution'])
@@ -565,7 +644,7 @@ class GptImageModel(BaseImageModel):
         filename = f"gpt_4k_{timestamp}.png"
         
         # Use configured output path
-        output_dir = Path(config.paths.get('images_dir', '/tmp'))
+        output_dir = Path(config.paths.get('images_dir', tempfile.gettempdir()))
         output_dir.mkdir(exist_ok=True)
         
         final_path = output_dir / filename

@@ -28,8 +28,13 @@ class AIWallpaperError(Exception):
         
         if self.details:
             full_message += "\nDETAILS:\n"
-            for key, value in self.details.items():
-                full_message += f"  {key}: {value}\n"
+            # Handle both dict and string details
+            if isinstance(self.details, dict):
+                for key, value in self.details.items():
+                    full_message += f"  {key}: {value}\n"
+            else:
+                # If details is a string or other type, just display it
+                full_message += f"  {self.details}\n"
                 
         full_message += f"\n{'=' * 70}\n"
         

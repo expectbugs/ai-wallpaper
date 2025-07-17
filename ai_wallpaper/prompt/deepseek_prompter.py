@@ -26,6 +26,8 @@ class DeepSeekPrompter(BasePrompter):
         self.ollama_path = config.system.get('ollama_path', '/usr/local/bin/ollama') if config.system else '/usr/local/bin/ollama'
         self.model_name = "deepseek-r1:14b"
         self._server_started = False
+        self._server_process = None  # Store process handle to prevent zombies
+        self._model_stopped = True  # Track if model has been stopped to avoid double stops
         
     def initialize(self) -> bool:
         """Initialize Ollama and ensure model is available
@@ -59,8 +61,8 @@ class DeepSeekPrompter(BasePrompter):
         if result.returncode != 0:
             self.logger.info("Starting Ollama server...")
             
-            # Start server in background
-            subprocess.Popen(
+            # Start server in background and store process handle
+            self._server_process = subprocess.Popen(
                 [self.ollama_path, "serve"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
@@ -159,16 +161,16 @@ Generate a single, richly detailed image prompt for a desktop wallpaper.
 Context: {context_desc}
 
 Requirements:
-- The prompt MUST be under {max_words} words. Do NOT go over.
+- The prompt MUST be under 65 words. Do NOT go over.
 - The prompt MUST be the **only** thing in your output. Absolutely no extra text, no commentary, no quotes, no labels, no headers.
-- Combine the theme elements creatively and unexpectedly.
+- Combine the theme elements creatively in unique ways.
 - Describe a vivid scene with clear composition: foreground, midground, and background.
 - Specify lighting and atmospheric conditions that enhance the theme.
 - Include the color palette and artistic style mentioned above.
 - Add rich texture and material details.
-- Make it {style}, ultra-detailed, and gallery-worthy.
+- Make it {style} and gallery-worthy.
 
-ONLY return the image prompt. No other text.
+ONLY return the image prompt. No other text.  65 Words or less, so keep it short.
 
 Image prompt:
 """.strip()
@@ -176,6 +178,9 @@ Image prompt:
         self.logger.debug("Sending instruction to deepseek...")
         
         try:
+            # Mark model as running
+            self._model_stopped = False
+            
             # Run deepseek
             cmd = [self.ollama_path, "run", self.model_name, instruction]
             result = subprocess.run(
@@ -187,7 +192,7 @@ Image prompt:
             )
             
             raw_output = result.stdout
-            self.logger.debug(f"Raw output: {raw_output[:200]}...")
+            self.logger.debug(f"Raw output: {raw_output}...")
             
             # Clean up output
             prompt = self.clean_prompt_output(raw_output)
@@ -208,7 +213,7 @@ Image prompt:
             # Do NOT truncate - the word limit is just a guideline for conciseness
             # FLUX uses T5 which can handle the full prompt regardless of CLIP warnings
                 
-            self.logger.info(f"Generated prompt: {prompt[:100]}..." if len(prompt) > 100 else f"Generated prompt: {prompt}")
+            self.logger.info(f"Generated prompt: {prompt}")
             
             return prompt
             
@@ -222,6 +227,11 @@ Image prompt:
             
     def _stop_model(self) -> None:
         """Stop the model to free resources"""
+        # Avoid double stops
+        if self._model_stopped:
+            self.logger.debug(f"Model {self.model_name} already stopped, skipping")
+            return
+            
         self.logger.info(f"Stopping {self.model_name} to free VRAM...")
         
         try:
@@ -231,6 +241,7 @@ Image prompt:
                 text=True,
                 check=True
             )
+            self._model_stopped = True
             self.logger.info("Model stopped successfully")
         except Exception as e:
             self.logger.warning(f"Failed to stop model: {e}")
@@ -264,4 +275,17 @@ Image prompt:
         # Stop model if loaded
         self._stop_model()
         
-        # Note: We don't stop the Ollama server as it may be used by other processes
+        # Clean up server process reference to prevent zombies
+        # Note: We don't actively stop the server as it may be used by other processes
+        # but we should reap the process if it has exited
+        if self._server_process:
+            try:
+                # Poll to see if process has exited
+                if self._server_process.poll() is not None:
+                    # Process has exited, reap it
+                    self._server_process.wait(timeout=1)
+                    self.logger.debug("Reaped Ollama server process")
+            except Exception as e:
+                self.logger.debug(f"Error reaping process: {e}")
+            finally:
+                self._server_process = None

@@ -34,7 +34,7 @@ weather_moods:
   clear_night: "ethereal"
   partly_cloudy: "dynamic"
   cloudy: "moody"
-  rain: "melancholic"
+  rain: "melancholic or sleepy rainy"
   thunderstorm: "dramatic"
   snow: "serene"
   fog: "mysterious"

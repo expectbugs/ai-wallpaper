@@ -13,98 +13,98 @@ categories:
         elements: ["cerritos_ship_bridge", "ensign_antics", "starfleet_comedy", "alien_encounters"]
         styles: ["animated_comedy_style", "optimistic_trek"]
         colors: ["federation_blue", "starfleet_gold", "cosmic_purples"]
-        weight: 3
+        weight: 1
         
       star_trek_strange_new_worlds:
         name: "Star Trek Strange New Worlds"
         elements: ["enterprise_nx1701", "pike_command", "number_one_efficiency", "spock_logic"]
         styles: ["modern_trek_aesthetic", "sleek_futurism"]
         colors: ["enterprise_bridge_blues", "silver_metallics", "warm_amber"]
-        weight: 3
+        weight: 1
         
       star_trek_deep_space_nine:
         name: "Star Trek Deep Space Nine"
         elements: ["terok_nor_station", "wormhole_phenomena", "bajoran_mysteries", "dominion_war"]
         styles: ["darker_trek_themes", "complex_politics"]
         colors: ["cardassian_grays", "bajoran_reds", "prophetic_golds"]
-        weight: 2
+        weight: 1
         
       star_trek_next_generation:
         name: "Star Trek Next Generation"
         elements: ["galaxy_class_enterprise", "picard_diplomacy", "data_positronics", "holodeck_adventures"]
         styles: ["classic_trek_elegance", "diplomatic_grandeur"]
         colors: ["tng_command_red", "science_teal", "operations_gold"]
-        weight: 3
+        weight: 2
         
       star_trek_voyager:
         name: "Star Trek Voyager"
         elements: ["lost_in_delta_quadrant", "janeway_determination", "borg_encounters", "seven_of_nine"]
         styles: ["frontier_exploration", "borg_gothic"]
         colors: ["voyager_grays", "delta_blues", "borg_greens"]
-        weight: 2
+        weight: 1
         
       marvel_avengers_assemble:
         name: "Marvel Avengers Assemble"
         elements: ["superhero_team_formation", "infinity_stones", "thanos_threat", "heroic_sacrifice"]
         styles: ["cinematic_superhero", "epic_battles"]
         colors: ["heroic_primaries", "cosmic_purples", "infinity_rainbow"]
-        weight: 4
+        weight: 1
         
       marvel_guardians_galaxy:
         name: "Marvel Guardians of the Galaxy"
         elements: ["cosmic_outlaws", "groot_majesty", "rocket_engineering", "starlord_mixtapes"]
         styles: ["space_opera_comedy", "retro_cosmic"]
         colors: ["guardian_orange", "cosmic_blues", "nova_yellows"]
-        weight: 3
+        weight: 1
         
       marvel_thor_asgard:
         name: "Marvel Thor Asgard"
         elements: ["norse_mythology_meets_science", "rainbow_bridge", "mjolnir_lightning", "loki_mischief"]
         styles: ["mythological_epic", "godly_grandeur"]
         colors: ["asgardian_gold", "bifrost_spectrum", "lightning_whites"]
-        weight: 3
+        weight: 1
         
       marvel_iron_man_tech:
         name: "Marvel Iron Man Tech"
         elements: ["arc_reactor_technology", "stark_tower", "repulsors_blazing", "AI_assistance"]
         styles: ["sleek_tech_noir", "mechanical_precision"]
         colors: ["stark_red_gold", "arc_reactor_blue", "metallic_chrome"]
-        weight: 3
+        weight: 1
         
       marvel_cosmic_entities:
         name: "Marvel Cosmic Entities"
         elements: ["celestials_emerging", "infinity_gauntlet", "quantum_realm", "multiverse_chaos"]
         styles: ["cosmic_horror_meets_heroism", "reality_bending"]
         colors: ["cosmic_purples", "infinity_golds", "quantum_silvers"]
-        weight: 2
+        weight: 1
         
       doctor_who_tardis:
         name: "Doctor Who TARDIS"
         elements: ["time_vortex_spinning", "gallifreyan_architecture", "sonic_screwdriver", "temporal_paradox"]
         styles: ["whimsical_time_travel", "british_sci_fi"]
         colors: ["tardis_blue", "gallifreyan_gold", "vortex_spirals"]
-        weight: 3
+        weight: 1
         
       doctor_who_daleks:
         name: "Doctor Who Daleks"
         elements: ["exterminate_chanting", "skaro_wasteland", "dalek_empire", "time_war_echoes"]
         styles: ["mechanical_horror", "pepper_pot_terror"]
         colors: ["dalek_bronze", "skaro_reds", "extermination_lights"]
-        weight: 2
+        weight: 1
         
       doctor_who_cybermen:
         name: "Doctor Who Cybermen"
         elements: ["cybermen_marching", "mondas_conversion", "delete_protocols", "steel_plague"]
         styles: ["body_horror_tech", "emotional_deletion"]
         colors: ["cyberman_silver", "conversion_blues", "deletion_grays"]
-        weight: 2
+        weight: 1
         
       black_mirror_tech_horror:
         name: "Black Mirror Tech Horror"
         elements: ["social_media_nightmare", "rating_systems", "digital_consciousness", "memory_manipulation"]
         styles: ["dystopian_tech_noir", "psychological_horror"]
         colors: ["screen_blue_glow", "digital_grays", "warning_reds"]
-        weight: 2
+        weight: 3
         
       black_mirror_virtual_reality:
         name: "Black Mirror Virtual Reality"
@@ -125,14 +125,14 @@ categories:
         elements: ["alexandria_castle", "black_mage_magic", "airship_adventures", "crystal_memories"]
         styles: ["whimsical_fantasy", "medieval_charm"]
         colors: ["crystal_blues", "alexandria_purples", "moogle_whites"]
-        weight: 3
+        weight: 2
         
       final_fantasy_tactics:
         name: "Final Fantasy Tactics"
         elements: ["ivalice_politics", "job_class_warfare", "ramza_determination", "delita_ambition"]
         styles: ["tactical_medieval", "political_intrigue"]
         colors: ["tactics_browns", "noble_purples", "war_crimsons"]
-        weight: 2
+        weight: 1
         
       final_fantasy_cosmic:
         name: "Final Fantasy Cosmic"
@@ -153,7 +153,7 @@ categories:
         elements: ["romeo_must_die_style", "forbidden_kingdom_magic", "cradle_to_grave_urban"]
         styles: ["romantic_action", "urban_fantasy"]
         colors: ["street_noir", "forbidden_magic", "urban_neon"]
-        weight: 2
+        weight: 1
         
       retro_gaming_nostalgia:
         name: "Retro Gaming Nostalgia"
@@ -178,7 +178,7 @@ categories:
 
   # Genre Fusion Themes (25% total weight) - Creative combinations
   GENRE_FUSION:
-    weight: 15
+    weight: 10
     description: "Creative mashups of different universes"
     themes:
       star_trek_star_wars:
@@ -186,28 +186,28 @@ categories:
         elements: ["enterprise_bridge_with_jedi", "federation_lightsabers", "warp_speed_to_tatooine", "vulcan_force_users"]
         styles: ["space_opera_fusion", "diplomatic_warriors"]
         colors: ["federation_blue", "jedi_green", "empire_gray"]
-        weight: 3
+        weight: 1
         
       star_trek_doctor_who:
         name: "Star Trek meets Doctor Who"
         elements: ["tardis_materializing_on_enterprise", "time_lords_meet_vulcans", "sonic_screwdriver_tricorders", "daleks_vs_klingons"]
         styles: ["time_travel_diplomacy", "temporal_prime_directive"]
         colors: ["tardis_blue", "federation_gold", "time_vortex"]
-        weight: 3
+        weight: 1
         
       star_trek_marvel:
         name: "Star Trek meets Marvel"
         elements: ["thor_visits_enterprise", "hulk_in_holodeck", "iron_man_starfleet_tech", "avengers_first_contact"]
         styles: ["superhero_space_exploration", "heroic_federation"]
         colors: ["marvel_red", "starfleet_blue", "asgard_gold"]
-        weight: 2
+        weight: 1
         
       cyberpunk_fantasy:
         name: "Cyberpunk Fantasy"
         elements: ["neon_lit_dragons", "holographic_wizards", "digital_magic_spells", "chrome_knights"]
         styles: ["tech_magic_fusion", "electric_mysticism"]
         colors: ["neon_spectrum", "magic_blues", "chrome_silver"]
-        weight: 3
+        weight: 2
         
       cyberpunk_western:
         name: "Cyberpunk Western"
@@ -235,7 +235,7 @@ categories:
         elements: ["undead_chocobo", "zombie_moogles", "necromancer_crystals", "apocalypse_airships"]
         styles: ["fantasy_zombie_horror", "magical_undead"]
         colors: ["decay_green", "undead_gray", "magic_purple"]
-        weight: 1
+        weight: 2
         
       steampunk_space:
         name: "Steampunk Space"
@@ -352,7 +352,7 @@ categories:
 
   # Anime & Manga (15% total weight) - Including One Punch Man
   ANIME_MANGA:
-    weight: 15
+    weight: 10
     description: "Anime and manga inspired themes"
     themes:
       saitama_one_punch:
@@ -360,28 +360,28 @@ categories:
         elements: ["bald_cape_hero", "overwhelming_power", "grocery_store_sales", "hero_for_hobby"]
         styles: ["minimalist_hero_comedy", "overpowered_protagonist"]
         colors: ["hero_yellow", "cape_red", "bald_white"]
-        weight: 3
+        weight: 4
         
       genos_cyborg_destruction:
         name: "Genos Cyborg Destruction"
         elements: ["cybernetic_enhancements", "incineration_cannons", "master_devotion", "mechanical_precision"]
         styles: ["cyborg_action_anime", "technological_power"]
         colors: ["cyborg_chrome", "incineration_orange", "tech_blue"]
-        weight: 2
+        weight: 3
         
       totoro_forest_magic:
         name: "Totoro Forest Magic"
         elements: ["forest_spirits", "childhood_wonder", "acorn_transportation", "nature_harmony"]
         styles: ["ghibli_whimsy", "environmental_magic"]
         colors: ["totoro_gray", "forest_green", "magic_blue"]
-        weight: 2
+        weight: 1
         
       dragon_ball_power_levels:
         name: "Dragon Ball Power Levels"
         elements: ["ki_energy_auras", "power_scaling_insanity", "tournament_battles", "transformation_sequences"]
         styles: ["battle_shonen_escalation", "power_fantasy"]
         colors: ["ki_gold", "aura_blue", "power_white"]
-        weight: 2
+        weight: 1
 
   # Temporal Themes (15% total weight) - Time Period Mashups
   TEMPORAL:
@@ -419,11 +419,11 @@ categories:
         elements: ["jedi_master_on_starfleet_bridge_fighting_pepper_pot_robots", "force_vs_extermination"]
         styles: ["maximum_franchise_chaos", "beloved_character_team_up"]
         colors: ["jedi_green", "federation_blue", "dalek_bronze"]
-        weight: 2
+        weight: 1
         
-      mandalorian_snakes_jackson:
-        name: "Mandalorian Snakes Jackson"
-        elements: ["beskar_armor_mandalorian_teams_with_samuel_l_jackson_fighting_interdimensional_serpents"]
+      mandalorian_snakes_plane_jackson:
+        name: "Mandalorian Snakes on a Plane Jackson"
+        elements: ["beskar_armor_mandalorian_teams_with_samuel_l_jackson_fighting_snakes_on_a_plane"]
         styles: ["action_hero_team_up", "snake_fighting_badass"]
         colors: ["mandalorian_silver", "jackson_purple", "snake_green"]
         weight: 1
@@ -464,7 +464,7 @@ categories:
         elements: ["syntax_highlighting_colors", "terminal_green_text", "multiple_monitor_setup", "late_night_coding"]
         styles: ["programmer_aesthetic", "development_environment"]
         colors: ["syntax_spectrum", "terminal_green", "editor_dark"]
-        weight: 3
+        weight: 2
         
       shader_code_visuals:
         name: "Shader Code Visuals"
