@@ -4,7 +4,7 @@ Ultra-high-quality 4K wallpaper generation using AI models with weather integrat
 
 ## Features
 
-- **Multiple AI Models**: FLUX.1-dev, DALL-E 3, GPT-Image-1, SDXL with LoRA
+- **Multiple AI Models**: FLUX.1-dev, DALL-E 3, GPT-Image-1, SDXL with Juggernaut XL v9 + multi-LoRA
 - **8K→4K Pipeline**: Generate at base resolution, upscale to 8K, downsample to perfect 4K
 - **Weather Integration**: Real-time weather data influences artistic themes and moods
 - **Theme System**: 60+ curated themes across 10 categories with chaos mode

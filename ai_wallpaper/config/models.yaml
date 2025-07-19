@@ -31,9 +31,9 @@ models:
           steps: 100
           guidance: 3.5
         upscale:
-          model: "RealESRGAN_x4plus"
-          scale: 4
-          tile_size: 1024
+          model: "RealESRGAN_x2plus"  # Better for photos
+          scale: 2  # Will do 2x twice for 4x total
+          tile_size: 512  # Smaller tiles for better quality
           fp32: true
         downsample:
           resolution: [3840, 2160]
@@ -108,14 +108,14 @@ models:
   sdxl:
     class: SdxlModel
     enabled: true
-    display_name: "SDXL Ultimate Quality"
+    display_name: "SDXL Ultimate Photorealistic"
     model_path: "stabilityai/stable-diffusion-xl-base-1.0"  # Fallback
-    checkpoint_path: "/home/user/ai-wallpaper/models/sdxl-base/sd_xl_base_1.0.safetensors"  # Primary
+    checkpoint_path: "/home/user/ai-wallpaper/models/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors"  # Primary - Juggernaut XL
     refiner_model_path: "stabilityai/stable-diffusion-xl-refiner-1.0"  # Fallback
     refiner_checkpoint_path: "/home/user/ai-wallpaper/models/sdxl-refiner/sd_xl_refiner_1.0.safetensors"  # Primary
     
     generation:
-      dimensions: [1344, 768]  # Native SDXL 16:9 training resolution (exactly 16:9)
+      dimensions: [1344, 768]  # Native SDXL 16:9 - will be used in pipeline
       scheduler_options:  # Prioritized for maximum quality
         - HeunDiscreteScheduler         # Best for high-detail, quality-focused
         - KDPM2DiscreteScheduler        # DPM++ 2M equivalent, excellent quality
@@ -123,8 +123,8 @@ models:
       scheduler_kwargs:
         use_karras_sigmas: true  # Improves quality and prevents artifacts
       torch_dtype: float16
-      steps_range: [95, 100]     # Maximum quality range
-      guidance_range: [6.8, 7.0]  # Optimal sweet spot
+      steps_range: [70, 100]     # Maximum quality range (80 default)
+      guidance_range: [7.0, 9.0]  # Photorealistic optimal range (8.0 default)
       
     pipeline:
       type: "sdxl_ultimate"  # Multi-stage progressive upscaling
@@ -158,8 +158,8 @@ models:
             
         # Stage 4: Real-ESRGAN enhancement
         realesrgan:
-          scale: 2  # 3024x1728 -> 6048x3456
-          model: "RealESRGAN_x4plus"
+          scale: 2  # Using x2plus for photos
+          model: "RealESRGAN_x2plus"  # Better for photorealistic
           tile_size: 512
           tile_padding: 32
           use_fp32: true  # Maximum precision
@@ -183,24 +183,52 @@ models:
     lora:
       enabled: true
       auto_select_by_theme: true
+      max_count: 5  # Maximum simultaneous LoRAs
+      weight_sum_max: 4.0  # Total weight limit
       available_loras:
-        photorealism:
-          path: "/home/user/ai-wallpaper/loras/photorealism.safetensors"
-          weight_range: [0.6, 0.9]
-          categories: ["LOCAL_MEDIA", "NATURE_EXPANDED", "URBAN_CITYSCAPE"]
-        anime:
-          path: "/home/user/ai-wallpaper/loras/anime.safetensors"
-          weight_range: [0.7, 1.0]
-          categories: ["ANIME_MANGA", "GENRE_FUSION"]
-        architectural:
-          path: "/home/user/ai-wallpaper/loras/architectural.safetensors"
+        detail_tweaker_xl:
+          path: "/home/user/ai-wallpaper/models/loras/detail/detail_tweaker_xl.safetensors"
+          weight_range: [0.8, 1.5]
+          categories: ["all"]
+          purpose: "Primary detail enhancement"
+        better_picture_more_details:
+          path: "/home/user/ai-wallpaper/models/loras/detail/better_picture_more_details.safetensors"
+          weight_range: [0.6, 1.0]
+          categories: ["all"]
+          purpose: "Eye, skin, hair detail"
+        skin_realism_sdxl:
+          path: "/home/user/ai-wallpaper/models/loras/photorealism/skin_realism_sdxl.safetensors"
           weight_range: [0.5, 0.8]
-          categories: ["ARCHITECTURAL", "URBAN_CITYSCAPE"]
+          categories: ["LOCAL_MEDIA", "GENRE_FUSION"]
+          purpose: "Natural skin imperfections"
+        sdxl_film_photography:
+          path: "/home/user/ai-wallpaper/models/loras/effects/sdxl_film_photography.safetensors"
+          weight_range: [0.3, 0.6]
+          categories: ["ATMOSPHERIC", "SPACE_COSMIC", "TEMPORAL"]
+          purpose: "Film grain and cinematic look"
           
     prompt_requirements:
       max_words: 100
-      style: "detailed_artistic"
+      style: "photorealistic_detailed"
       prompter: "deepseek"
+      add_photorealistic_prefix: true
+      negative_prompt: |
+        watercolor, painting, illustration, drawing, sketch, cartoon, anime,
+        artistic, painted, brush strokes, canvas texture, paper texture,
+        impressionism, expressionism, abstract, stylized,
+        oil painting, acrylic, pastel, charcoal,
+        (worst quality:1.4), (bad quality:1.4), (poor quality:1.4),
+        blurry, soft focus, out of focus, bokeh,
+        low resolution, low detail, pixelated, aliasing,
+        jpeg artifacts, compression artifacts,
+        oversaturated, undersaturated, overexposed, underexposed,
+        grainy, noisy, film grain, sensor noise,
+        bad anatomy, deformed, mutated, disfigured,
+        extra limbs, missing limbs, floating limbs,
+        bad hands, missing fingers, extra fingers,
+        bad eyes, missing eyes, extra eyes,
+        low quality skin, plastic skin, doll skin,
+        bad teeth, ugly
       
 # Random model selection configuration
 random_selection:

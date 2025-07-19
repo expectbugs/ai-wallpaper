@@ -1,5 +1,26 @@
 # Changelog
 
+## [4.2.0] - 2025-07-18
+
+### Changed
+- Upgraded SDXL pipeline with Juggernaut XL v9 for superior photorealistic output
+- Implemented multi-LoRA stacking system for enhanced image quality
+- Added comprehensive negative prompts to eliminate watercolor/artistic effects
+- Enhanced theme-based automatic LoRA selection
+- Optimized settings: 80+ steps, CFG 8.0, ensemble base/refiner pipeline
+- Added photorealistic prompt enhancement with DSLR camera modifiers
+
+### Added
+- Downloaded and integrated photorealistic LoRAs: Better Picture v3, Photo Enhance v2, Photorealistic v1, Real Skin Slider
+- Multi-LoRA adapter system with weight balancing (4.0 total weight limit)
+- Advanced negative prompt targeting to prevent artistic/painted styles
+
+### Fixed
+- Resolved SDXL watercolor painting output issue - now produces photorealistic images
+- Size mismatch warnings for LoRA compatibility (non-fatal, generation continues)
+
+---
+
 ## [0.1.0] - 2025-07-09
 
 ### Added

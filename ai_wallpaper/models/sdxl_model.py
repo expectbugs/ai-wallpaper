@@ -45,6 +45,7 @@ class SdxlModel(BaseImageModel):
         self.pipe = None
         self.refiner_pipe = None
         self.loaded_loras = {}
+        self.available_loras = self._scan_available_loras()
         self.resource_manager = get_resource_manager()
         
     def initialize(self) -> bool:
@@ -54,7 +55,7 @@ class SdxlModel(BaseImageModel):
             True if initialization successful
         """
         try:
-            self.logger.info("Initializing SDXL model...")
+            self.logger.info("Initializing SDXL Ultimate Photorealistic Pipeline...")
             
             # Check resources
             self.resource_manager.check_critical_resources(
@@ -65,24 +66,30 @@ class SdxlModel(BaseImageModel):
             # Clear resources for this model
             self.resource_manager.prepare_for_model(self.model_name)
             
-            # Load pipeline
-            model_path = self.config.get('model_path', 'stabilityai/stable-diffusion-xl-base-1.0')
-            checkpoint_path = self.config.get('checkpoint_path')
-            
-            # Determine loading method
-            if checkpoint_path and Path(checkpoint_path).exists():
-                # Load from single checkpoint file
-                self.logger.info(f"Loading SDXL from checkpoint: {checkpoint_path}")
-                self.pipe = self._load_from_single_file(checkpoint_path)
+            # Check for Juggernaut XL first
+            juggernaut_path = Path("/home/user/ai-wallpaper/models/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors")
+            if juggernaut_path.exists():
+                self.logger.info("Loading Juggernaut XL v9 for superior photorealism...")
+                self.pipe = self._load_from_single_file(str(juggernaut_path))
             else:
-                # Load from HuggingFace repo or directory
-                self.logger.info(f"Loading SDXL pipeline from: {model_path}")
-                self.pipe = StableDiffusionXLPipeline.from_pretrained(
-                    model_path,
-                    torch_dtype=torch.float16,
-                    use_safetensors=True,
-                    variant="fp16"
-                )
+                # Fallback to standard SDXL
+                model_path = self.config.get('model_path', 'stabilityai/stable-diffusion-xl-base-1.0')
+                checkpoint_path = self.config.get('checkpoint_path')
+                
+                # Determine loading method
+                if checkpoint_path and Path(checkpoint_path).exists():
+                    # Load from single checkpoint file
+                    self.logger.info(f"Loading SDXL from checkpoint: {checkpoint_path}")
+                    self.pipe = self._load_from_single_file(checkpoint_path)
+                else:
+                    # Load from HuggingFace repo or directory
+                    self.logger.info(f"Loading SDXL pipeline from: {model_path}")
+                    self.pipe = StableDiffusionXLPipeline.from_pretrained(
+                        model_path,
+                        torch_dtype=torch.float16,
+                        use_safetensors=True,
+                        variant="fp16"
+                    )
             
             # Move to GPU
             self.pipe = self.pipe.to("cuda")
@@ -301,8 +308,8 @@ class SdxlModel(BaseImageModel):
         # Set up generator
         generator = torch.Generator(device="cuda").manual_seed(seed)
         
-        # Get dimensions from config
-        width, height = self.config['generation']['dimensions']
+        # Get dimensions from config (16:9 for SDXL)
+        width, height = 1344, 768  # Native SDXL 16:9
         
         # Select scheduler
         scheduler_class = self._get_scheduler_class(params.get('scheduler'))
@@ -320,21 +327,51 @@ class SdxlModel(BaseImageModel):
         if scheduler_kwargs:
             self.logger.debug(f"Scheduler kwargs: {scheduler_kwargs}")
         
+        # Enhance prompt for photorealism
+        photo_prefixes = [
+            "RAW photo, ",
+            "photograph, ",
+            "DSLR photo, ",
+            "professional photography, "
+        ]
+        photo_suffixes = [
+            ", 8k uhd, dslr, high quality, film grain, Fujifilm XT3",
+            ", cinematic, professional, 4k, highly detailed",
+            ", shot on Canon EOS R5, 85mm lens, f/1.4, ISO 100",
+            ", photorealistic, hyperrealistic, professional lighting"
+        ]
+        
+        # Add random photorealistic modifiers
+        enhanced_prompt = f"{random.choice(photo_prefixes)}{prompt}{random.choice(photo_suffixes)}"
+        
         # Prepare parameters
         sdxl_params = {
-            'prompt': prompt,
+            'prompt': enhanced_prompt,
             'height': height,
             'width': width,
             'generator': generator,
-            'num_inference_steps': params.get('steps', 50),
-            'guidance_scale': params.get('guidance_scale', 7.5),
+            'num_inference_steps': params.get('steps', 80),  # Increased for quality
+            'guidance_scale': params.get('guidance_scale', 8.0),  # Optimal for photorealism
         }
         
-        # Add negative prompt for better quality
+        # Enhanced negative prompt targeting watercolor effects
         sdxl_params['negative_prompt'] = (
-            "low quality, blurry, pixelated, noisy, oversaturated, "
-            "underexposed, overexposed, bad anatomy, bad proportions, "
-            "watermark, signature, text, logo"
+            "watercolor, painting, illustration, drawing, sketch, cartoon, anime, "
+            "artistic, painted, brush strokes, canvas texture, paper texture, "
+            "impressionism, expressionism, abstract, stylized, "
+            "oil painting, acrylic, pastel, charcoal, "
+            "(worst quality:1.4), (bad quality:1.4), (poor quality:1.4), "
+            "blurry, soft focus, out of focus, bokeh, "
+            "low resolution, low detail, pixelated, aliasing, "
+            "jpeg artifacts, compression artifacts, "
+            "oversaturated, undersaturated, overexposed, underexposed, "
+            "grainy, noisy, film grain, sensor noise, "
+            "bad anatomy, deformed, mutated, disfigured, "
+            "extra limbs, missing limbs, floating limbs, "
+            "bad hands, missing fingers, extra fingers, "
+            "bad eyes, missing eyes, extra eyes, "
+            "low quality skin, plastic skin, doll skin, "
+            "bad teeth, ugly"
         )
         
         self.logger.info(
@@ -354,7 +391,7 @@ class SdxlModel(BaseImageModel):
         if use_ensemble:
             # Ensemble of expert denoisers approach
             total_steps = sdxl_params['num_inference_steps']
-            switch_at = self.config['pipeline'].get('stages', {}).get('base_generation', {}).get('refiner_switch_at', 0.8)
+            switch_at = 0.8  # 80% base, 20% refiner for quality
             base_steps = int(total_steps * switch_at)
             
             self.logger.info(f"Using ensemble of expert denoisers: base for {base_steps} steps, refiner for final {total_steps - base_steps}")
@@ -452,6 +489,26 @@ class SdxlModel(BaseImageModel):
                 **scheduler_kwargs
             )
         
+        # Use the same enhanced negative prompt from stage 1
+        negative_prompt = (
+            "watercolor, painting, illustration, drawing, sketch, cartoon, anime, "
+            "artistic, painted, brush strokes, canvas texture, paper texture, "
+            "impressionism, expressionism, abstract, stylized, "
+            "oil painting, acrylic, pastel, charcoal, "
+            "(worst quality:1.4), (bad quality:1.4), (poor quality:1.4), "
+            "blurry, soft focus, out of focus, bokeh, "
+            "low resolution, low detail, pixelated, aliasing, "
+            "jpeg artifacts, compression artifacts, "
+            "oversaturated, undersaturated, overexposed, underexposed, "
+            "grainy, noisy, film grain, sensor noise, "
+            "bad anatomy, deformed, mutated, disfigured, "
+            "extra limbs, missing limbs, floating limbs, "
+            "bad hands, missing fingers, extra fingers, "
+            "bad eyes, missing eyes, extra eyes, "
+            "low quality skin, plastic skin, doll skin, "
+            "bad teeth, ugly"
+        )
+        
         # Refine image with SDXL refiner
         refined = self.refiner_pipe(
             prompt=prompt,
@@ -460,11 +517,7 @@ class SdxlModel(BaseImageModel):
             guidance_scale=params.get('guidance_scale', 7.5),
             num_inference_steps=steps,
             generator=generator,
-            negative_prompt=(
-                "low quality, blurry, pixelated, noisy, oversaturated, "
-                "underexposed, overexposed, bad anatomy, bad proportions, "
-                "watermark, signature, text, logo"
-            )
+            negative_prompt=negative_prompt
         ).images[0]
         
         # Save refined image
@@ -700,69 +753,130 @@ class SdxlModel(BaseImageModel):
             return False
         
     def _select_and_load_lora(self, theme: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Select and load LoRA based on theme
+        """Select and load multiple LoRAs based on theme for photorealistic enhancement
         
         Args:
             theme: Theme information
             
         Returns:
-            LoRA info if loaded
+            LoRA stack info if loaded
         """
-        if not self.config['lora'].get('enabled'):
+        if not self.config['lora'].get('enabled') or not self.available_loras:
             return None
             
-        available_loras = self.config['lora'].get('available_loras', {})
-        if not available_loras:
-            return None
-            
-        # Get theme category
-        category = theme.get('category', '')
+        loaded_loras = []
+        category = theme.get('category', 'UNKNOWN')
         
-        # Find matching LoRA
-        for lora_name, lora_data in available_loras.items():
-            if category in lora_data.get('categories', []):
-                # Load LoRA
-                lora_path = Path(lora_data['path'])
+        # Theme-specific LoRA presets
+        theme_presets = {
+            "NATURE_EXPANDED": {
+                "required": ["better_picture_more_details"],
+                "optional": ["sdxl_film_photography"],
+                "weights": {"better_picture_more_details": 0.9, "sdxl_film_photography": 0.4}
+            },
+            "LOCAL_MEDIA": {
+                "required": ["skin_realism_sdxl", "better_picture_more_details"],
+                "optional": [],
+                "weights": {"skin_realism_sdxl": 0.8, "better_picture_more_details": 0.9}
+            },
+            "URBAN_CITYSCAPE": {
+                "required": ["better_picture_more_details"],
+                "optional": ["sdxl_film_photography"],
+                "weights": {"better_picture_more_details": 0.8, "sdxl_film_photography": 0.3}
+            },
+            "GENRE_FUSION": {
+                "required": ["better_picture_more_details"],
+                "optional": ["skin_realism_sdxl", "sdxl_film_photography"],
+                "weights": {"better_picture_more_details": 0.8, "skin_realism_sdxl": 0.6, "sdxl_film_photography": 0.4}
+            },
+            "DEFAULT": {
+                "required": ["better_picture_more_details"],
+                "optional": ["skin_realism_sdxl"],
+                "weights": {"better_picture_more_details": 0.8, "skin_realism_sdxl": 0.6}
+            }
+        }
+        
+        # Get preset for theme or use default
+        preset = theme_presets.get(category, theme_presets["DEFAULT"])
+        
+        # Load required LoRAs
+        for lora_name in preset["required"]:
+            if lora_name in self.available_loras:
+                lora_info = self.available_loras[lora_name]
+                weight = preset["weights"].get(lora_name, random.uniform(*lora_info["weight_range"]))
+                loaded_loras.append({
+                    "name": lora_name,
+                    "path": lora_info["path"],
+                    "weight": weight,
+                    "category": lora_info["category"]
+                })
                 
-                if not lora_path.exists():
-                    self.logger.warning(f"LoRA file not found: {lora_path}")
-                    continue
+        # Load optional LoRAs with probability
+        for lora_name in preset["optional"]:
+            if lora_name in self.available_loras and random.random() > 0.5:
+                lora_info = self.available_loras[lora_name]
+                weight = preset["weights"].get(lora_name, random.uniform(*lora_info["weight_range"]))
+                loaded_loras.append({
+                    "name": lora_name,
+                    "path": lora_info["path"],
+                    "weight": weight,
+                    "category": lora_info["category"]
+                })
                 
-                # Validate LoRA file format and size
-                if not lora_path.suffix in ['.safetensors', '.ckpt', '.pt', '.bin']:
-                    self.logger.error(f"Invalid LoRA file format: {lora_path.suffix}")
-                    continue
+        # Apply LoRA stack
+        if loaded_loras:
+            # Check total weight doesn't exceed 4.0
+            total_weight = sum(l["weight"] for l in loaded_loras)
+            if total_weight > 4.0:
+                # Scale down proportionally
+                scale_factor = 4.0 / total_weight
+                for lora in loaded_loras:
+                    lora["weight"] *= scale_factor
+                    
+            # Load all LoRAs using new multi-LoRA approach
+            self.logger.info(f"Loading {len(loaded_loras)} LoRAs for theme {category}")
+            
+            try:
+                # Load each LoRA
+                adapter_names = []
+                adapter_weights = []
                 
-                # Check file size (LoRAs should be reasonable size, not empty or huge)
-                file_size_mb = lora_path.stat().st_size / (1024 * 1024)
-                if file_size_mb < 1:
-                    self.logger.error(f"LoRA file too small ({file_size_mb:.1f}MB): {lora_path}")
-                    continue
-                elif file_size_mb > 2000:  # 2GB seems reasonable max for LoRA
-                    self.logger.error(f"LoRA file too large ({file_size_mb:.1f}MB): {lora_path}")
-                    continue
+                for i, lora in enumerate(loaded_loras):
+                    adapter_name = f"adapter_{i}_{lora['name']}"
+                    self.logger.info(f"Loading LoRA: {lora['name']} @ {lora['weight']:.2f}")
                     
-                try:
-                    # Get weight
-                    weight_range = lora_data.get('weight_range', [0.5, 1.0])
-                    weight = random.uniform(*weight_range)
+                    self.pipe.load_lora_weights(
+                        lora['path'],
+                        adapter_name=adapter_name
+                    )
+                    adapter_names.append(adapter_name)
+                    adapter_weights.append(lora['weight'])
                     
-                    self.logger.info(f"Loading LoRA: {lora_name} ({file_size_mb:.1f}MB) with weight {weight:.2f}")
-                    
-                    # Load LoRA weights
-                    self.pipe.load_lora_weights(str(lora_path))
-                    self.pipe.fuse_lora(lora_scale=weight)
-                    
-                    return {
-                        'name': lora_name,
-                        'path': str(lora_path),
-                        'weight': weight,
-                        'category': category
-                    }
-                    
-                except Exception as e:
-                    self.logger.error(f"Failed to load LoRA {lora_name}: {e}")
-                    
+                # Set all adapters with their weights
+                self.pipe.set_adapters(adapter_names, adapter_weights=adapter_weights)
+                
+                return {
+                    "stack": loaded_loras,
+                    "total_weight": sum(l["weight"] for l in loaded_loras),
+                    "count": len(loaded_loras)
+                }
+                
+            except Exception as e:
+                self.logger.error(f"Failed to load LoRA stack: {e}")
+                # Try fallback to single LoRA
+                if loaded_loras:
+                    try:
+                        lora = loaded_loras[0]
+                        self.pipe.load_lora_weights(lora['path'])
+                        self.pipe.fuse_lora(lora_scale=lora['weight'])
+                        return {
+                            "stack": [lora],
+                            "total_weight": lora['weight'],
+                            "count": 1
+                        }
+                    except:
+                        pass
+                        
         return None
         
     def _unload_lora(self) -> None:
@@ -773,6 +887,55 @@ class SdxlModel(BaseImageModel):
             self.logger.info("LoRA unloaded")
         except Exception as e:
             self.logger.warning(f"Failed to unload LoRA: {e}")
+            
+    def _scan_available_loras(self) -> Dict[str, Dict[str, Any]]:
+        """Scan and catalog all available LoRAs"""
+        loras = {}
+        lora_base_dir = Path("/home/user/ai-wallpaper/models/loras")
+        
+        if not lora_base_dir.exists():
+            return loras
+            
+        # Define LoRA metadata
+        lora_metadata = {
+            # Skip detail_tweaker_xl - it's 4GB which is too large for a LoRA
+            "better_picture_more_details.safetensors": {
+                "name": "better_picture_more_details",
+                "category": "detail",
+                "weight_range": [0.6, 1.0],
+                "purpose": "Eye, skin, hair detail",
+                "compatible_themes": ["all"]
+            },
+            "skin_realism_sdxl.safetensors": {
+                "name": "skin_realism_sdxl",
+                "category": "photorealism",
+                "weight_range": [0.5, 0.8],
+                "purpose": "Natural skin imperfections",
+                "trigger": "Detailed natural skin and blemishes",
+                "compatible_themes": ["LOCAL_MEDIA", "GENRE_FUSION"]
+            },
+            "sdxl_film_photography.safetensors": {
+                "name": "sdxl_film_photography",
+                "category": "effects",
+                "weight_range": [0.3, 0.6],
+                "purpose": "Film grain, cinematic look",
+                "compatible_themes": ["ATMOSPHERIC", "SPACE_COSMIC", "TEMPORAL"]
+            }
+        }
+        
+        # Scan all LoRA files
+        for lora_file in lora_base_dir.rglob("*.safetensors"):
+            if lora_file.stat().st_size > 0:  # Skip empty files
+                filename = lora_file.name
+                if filename in lora_metadata:
+                    metadata = lora_metadata[filename].copy()
+                    metadata["path"] = str(lora_file)
+                    metadata["size_mb"] = lora_file.stat().st_size / (1024 * 1024)
+                    loras[metadata["name"]] = metadata
+                    self.logger.debug(f"Found LoRA: {metadata['name']} ({metadata['size_mb']:.1f}MB)")
+                    
+        self.logger.info(f"Scanned and found {len(loras)} valid LoRAs")
+        return loras
             
     def _load_refiner_model(self) -> None:
         """Load SDXL Refiner model for ensemble of expert denoisers
@@ -925,8 +1088,8 @@ class SdxlModel(BaseImageModel):
         Returns:
             Optimized prompt for SDXL
         """
-        # SDXL works well with detailed prompts
-        return ""  # Will be implemented with prompt generation
+        # Let DeepSeek handle it, but we'll enhance in generate
+        return ""
         
     def get_pipeline_stages(self) -> List[str]:
         """Return pipeline stages for SDXL
