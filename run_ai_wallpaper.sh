@@ -27,12 +27,30 @@ log "Working directory: $PWD"
 log "User: $(whoami)"
 log "Display: $DISPLAY"
 
-# Check if virtual environment exists
-if [ -d "/home/user/grace/.venv" ]; then
-    log "Activating virtual environment"
-    source /home/user/grace/.venv/bin/activate
+# Check for virtual environment
+# 1. Check AI_WALLPAPER_VENV environment variable
+if [ -n "$AI_WALLPAPER_VENV" ] && [ -f "$AI_WALLPAPER_VENV" ]; then
+    log "Using AI_WALLPAPER_VENV: $AI_WALLPAPER_VENV"
+    PYTHON_BIN="$AI_WALLPAPER_VENV"
+# 2. Check VIRTUAL_ENV environment variable
+elif [ -n "$VIRTUAL_ENV" ] && [ -d "$VIRTUAL_ENV" ]; then
+    log "Activating virtual environment from VIRTUAL_ENV: $VIRTUAL_ENV"
+    source "$VIRTUAL_ENV/bin/activate"
+# 3. Look for common venv locations
 else
-    log "WARNING: Virtual environment not found at /home/user/grace/.venv"
+    VENV_FOUND=false
+    for VENV_DIR in ".venv" "venv" "env" ".env"; do
+        if [ -d "$SCRIPT_DIR/$VENV_DIR" ] && [ -f "$SCRIPT_DIR/$VENV_DIR/bin/activate" ]; then
+            log "Found virtual environment at $SCRIPT_DIR/$VENV_DIR"
+            source "$SCRIPT_DIR/$VENV_DIR/bin/activate"
+            VENV_FOUND=true
+            break
+        fi
+    done
+    
+    if [ "$VENV_FOUND" = false ]; then
+        log "WARNING: No virtual environment found, using system Python"
+    fi
 fi
 
 # Check environment variables

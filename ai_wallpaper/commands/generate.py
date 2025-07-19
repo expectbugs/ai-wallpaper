@@ -42,7 +42,10 @@ class GenerateCommand:
         no_upscale: bool = False,
         no_wallpaper: bool = False,
         save_stages: bool = False,
-        output_path: Optional[str] = None
+        output_path: Optional[str] = None,
+        resolution: Optional[str] = None,
+        quality_mode: str = 'balanced',
+        no_tiled_refinement: bool = False
     ) -> Dict[str, Any]:
         """Execute wallpaper generation
         
@@ -57,6 +60,9 @@ class GenerateCommand:
             no_wallpaper: Don't set as wallpaper
             save_stages: Save intermediate images
             output_path: Custom output path
+            resolution: Target resolution as WIDTHxHEIGHT or preset name
+            quality_mode: Quality mode (fast/balanced/ultimate)
+            no_tiled_refinement: Disable tiled refinement pass
             
         Returns:
             Generation results
@@ -96,7 +102,10 @@ class GenerateCommand:
                 model_instance,
                 random_params,
                 no_upscale,
-                save_stages
+                save_stages,
+                resolution,
+                quality_mode,
+                no_tiled_refinement
             )
             
             # Step 6: Generate image
@@ -338,7 +347,10 @@ class GenerateCommand:
         model_instance,
         random_params: bool,
         no_upscale: bool,
-        save_stages: bool
+        save_stages: bool,
+        resolution: Optional[str],
+        quality_mode: str,
+        no_tiled_refinement: bool
     ) -> Dict[str, Any]:
         """Prepare generation parameters
         
@@ -347,6 +359,9 @@ class GenerateCommand:
             random_params: Randomize parameters
             no_upscale: Skip upscaling
             save_stages: Save stages
+            resolution: Target resolution (WIDTHxHEIGHT or preset)
+            quality_mode: Quality mode (fast/balanced/ultimate)
+            no_tiled_refinement: Disable tiled refinement
             
         Returns:
             Parameters dictionary
@@ -374,6 +389,29 @@ class GenerateCommand:
         # Add other parameters
         params['no_upscale'] = no_upscale
         params['save_stages'] = save_stages
+        
+        # Add resolution parameters
+        if resolution:
+            # Import ResolutionManager to check presets
+            from ..core.resolution_manager import ResolutionManager
+            rm = ResolutionManager()
+            
+            # Check if it's a preset name
+            if resolution in rm.PRESETS:
+                params['target_resolution'] = rm.PRESETS[resolution]
+                self.logger.info(f"Using resolution preset '{resolution}': {rm.PRESETS[resolution]}")
+            else:
+                # Parse WIDTHxHEIGHT format
+                try:
+                    width, height = map(int, resolution.split('x'))
+                    params['target_resolution'] = (width, height)
+                    self.logger.info(f"Using custom resolution: {width}x{height}")
+                except ValueError:
+                    raise ValueError(f"Invalid resolution format: '{resolution}'. Use WIDTHxHEIGHT or preset name.")
+        
+        # Add quality mode
+        params['quality_mode'] = quality_mode
+        params['no_tiled_refinement'] = no_tiled_refinement
         
         return params
         

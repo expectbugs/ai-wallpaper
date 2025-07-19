@@ -3,11 +3,12 @@
 
 system:
   # Python virtual environment path
-  # This is used in the executable shebang
-  python_venv: "/home/user/grace/.venv/bin/python3"
+  # Set via AI_WALLPAPER_VENV environment variable or auto-detected
+  python_venv: null
   
   # Ollama executable path
-  ollama_path: "/usr/local/bin/ollama"
+  # Will be found in PATH or set via AI_WALLPAPER_OLLAMA_PATH
+  ollama_path: "ollama"
   
   # Fail loud philosophy - DO NOT CHANGE!
   fail_loud: true
@@ -18,7 +19,8 @@ weather:
   longitude: -88.5443
   
   # Cache settings
-  cache_dir: "/home/user/ai-wallpaper/.weather_cache"
+  # Uses dynamic cache directory from PathResolver
+  cache_dir: "${AI_WALLPAPER_CACHE}/weather"
   cache_grid_expiration: 86400    # 1 day in seconds
   cache_forecast_expiration: 900   # 15 minutes in seconds
   
@@ -36,11 +38,11 @@ generation:
   # Directory for intermediate images (relative to images_dir)
   intermediate_dir: "stages"
   
-  # Prompt history file
-  prompt_history_file: "/home/user/ai-wallpaper/prompt_history.txt"
+  # Prompt history file (relative to data directory)
+  prompt_history_file: "prompt_history.jsonl"
   
-  # Last run information file
-  last_run_file: "/home/user/ai-wallpaper/last_run.txt"
+  # Last run information file (relative to data directory)
+  last_run_file: "last_run.txt"
   
   # Default seed behavior
   # Use null for random seed, or set a specific value for reproducibility

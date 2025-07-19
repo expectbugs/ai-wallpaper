@@ -1,40 +1,79 @@
-#!/home/user/grace/.venv/bin/python3
+#!/usr/bin/env python3
 """
 AI Wallpaper Generator - Main Executable
 Ultra-high-quality 4K wallpaper generation with AI
+Auto-detects virtual environment
 """
 
 import sys
 import os
 import yaml
+from pathlib import Path
 
-# Check if we need to re-exec with venv Python
-def check_venv():
-    """Check and switch to configured venv if needed"""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(script_dir, 'ai_wallpaper/config/system.yaml')
+
+def find_venv_python():
+    """Find appropriate Python interpreter with multiple strategies."""
+    # 1. Already in venv?
+    if sys.prefix != sys.base_prefix:
+        return sys.executable
+        
+    # 2. VIRTUAL_ENV environment variable set?
+    if venv := os.environ.get('VIRTUAL_ENV'):
+        # Try different possible locations
+        for python_path in ['bin/python3', 'bin/python', 'Scripts/python.exe']:
+            venv_python = os.path.join(venv, python_path)
+            if os.path.exists(venv_python):
+                return venv_python
+                
+    # 3. AI_WALLPAPER_VENV override?
+    if venv := os.environ.get('AI_WALLPAPER_VENV'):
+        if os.path.exists(venv):
+            return venv
+            
+    # 4. AI_WALLPAPER_PYTHON override?
+    if python := os.environ.get('AI_WALLPAPER_PYTHON'):
+        if os.path.exists(python):
+            return python
+            
+    # 5. Check system.yaml config
+    script_dir = Path(__file__).parent.resolve()
+    config_path = script_dir / 'ai_wallpaper' / 'config' / 'system.yaml'
     
-    if os.path.exists(config_path):
+    if config_path.exists():
         try:
             with open(config_path, 'r') as f:
                 config = yaml.safe_load(f)
                 venv_python = config.get('system', {}).get('python_venv')
                 
-                # Re-exec with venv python if not already using it
-                if venv_python and sys.executable != venv_python and os.path.exists(venv_python):
-                    os.execv(venv_python, [venv_python] + sys.argv)
+                if venv_python and os.path.exists(venv_python):
+                    return venv_python
         except Exception:
-            # If config loading fails, continue with current Python
             pass
+            
+    # 6. Look for common venv locations relative to script
+    common_venvs = ['.venv', 'venv', 'env', '.env']
+    for venv_name in common_venvs:
+        venv_path = script_dir / venv_name
+        if venv_path.exists():
+            # Try to find python executable
+            for python_path in ['bin/python3', 'bin/python', 'Scripts/python.exe']:
+                python_exe = venv_path / python_path
+                if python_exe.exists():
+                    return str(python_exe)
+                    
+    # 7. Use current Python
+    return sys.executable
 
-# Check venv before imports
-check_venv()
-
-# Add the package to Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-# Import and run the CLI
-from ai_wallpaper.cli.main import main
 
 if __name__ == "__main__":
+    # Find and switch to appropriate Python if needed
+    python = find_venv_python()
+    if python != sys.executable:
+        os.execv(python, [python] + sys.argv)
+    
+    # Add the package to Python path
+    sys.path.insert(0, str(Path(__file__).parent.resolve()))
+    
+    # Import and run the CLI
+    from ai_wallpaper.cli.main import main
     main()

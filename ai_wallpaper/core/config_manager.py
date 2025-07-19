@@ -14,6 +14,8 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 
 from .exceptions import ConfigurationError
+from .config_loader import get_config_loader
+from .path_resolver import get_resolver
 
 class ConfigManager:
     """Manages all configuration for the AI Wallpaper system"""
@@ -24,10 +26,14 @@ class ConfigManager:
         Args:
             config_dir: Custom config directory, defaults to package config/
         """
+        # Use the new path resolver and config loader
+        self.resolver = get_resolver()
+        self.config_loader = get_config_loader()
+        
         if config_dir is None:
             # Default to package config directory
-            package_dir = Path(__file__).parent.parent
-            config_dir = package_dir / "config"
+            package_dir = self.resolver.project_root
+            config_dir = package_dir / "ai_wallpaper" / "config"
             
         self.config_dir = Path(config_dir)
         
@@ -54,13 +60,16 @@ class ConfigManager:
         """Load all configuration files - fail loud on any error"""
         print(f"[CONFIG] Loading configuration from: {self.config_dir}")
         
+        # Load base configuration using the new loader
+        base_config = self.config_loader.load_with_overrides()
+        
         # Load each configuration file
         self.models = self._load_yaml("models.yaml", required=True)
-        self.paths = self._load_yaml("paths.yaml", required=True)
+        self.paths = self._merge_with_dynamic_paths(self._load_yaml("paths.yaml", required=True), base_config.get('paths', {}))
         self.weather = self._load_yaml("weather.yaml", required=True)
         self.settings = self._load_yaml("settings.yaml", required=True)
         self.themes = self._load_yaml("themes.yaml", required=True)
-        self.system = self._load_yaml("system.yaml", required=False)  # Optional for backwards compatibility
+        self.system = self._merge_with_dynamic_paths(self._load_yaml("system.yaml", required=False), base_config.get('system', {}))
         
         # If system.yaml exists and has weather config, merge it
         if self.system and 'weather' in self.system:
@@ -74,6 +83,9 @@ class ConfigManager:
         self.settings = self._expand_env_vars(self.settings)
         self.themes = self._expand_env_vars(self.themes)
         self.system = self._expand_env_vars(self.system)
+        
+        # Apply dynamic path resolution
+        self._apply_dynamic_paths()
         
         # Validate configuration
         self._validate_all()
@@ -404,6 +416,37 @@ class ConfigManager:
                     
         print("[CONFIG] Could not auto-detect desktop environment")
         return None
+        
+    def _merge_with_dynamic_paths(self, config: Dict[str, Any], dynamic_config: Dict[str, Any]) -> Dict[str, Any]:
+        """Merge configuration with dynamic path resolution"""
+        # Deep merge, with dynamic config taking precedence
+        result = config.copy()
+        for key, value in dynamic_config.items():
+            if key not in result or result[key] is None:
+                result[key] = value
+        return result
+        
+    def _apply_dynamic_paths(self) -> None:
+        """Apply dynamic path resolution to paths configuration"""
+        # Ensure all paths use resolver
+        if 'images_dir' not in self.paths or not self.paths['images_dir']:
+            self.paths['images_dir'] = str(self.resolver.get_data_dir() / 'wallpapers')
+            
+        if 'wallpaper_dir' not in self.paths:
+            self.paths['wallpaper_dir'] = str(self.resolver.get_data_dir() / 'wallpapers')
+            
+        if 'log_dir' not in self.paths:
+            self.paths['log_dir'] = str(self.resolver.get_log_dir())
+            
+        if 'temp_dir' not in self.paths:
+            self.paths['temp_dir'] = str(self.resolver.get_temp_dir())
+            
+        # Update weather cache directory
+        if 'cache' in self.weather and 'directory' in self.weather['cache']:
+            # Expand environment variables in cache directory
+            cache_dir = self.weather['cache']['directory']
+            if '${AI_WALLPAPER_CACHE}' in cache_dir:
+                self.weather['cache']['directory'] = str(self.resolver.get_cache_dir() / 'weather')
 
 # Singleton instance with thread safety
 _config_manager: Optional[ConfigManager] = None

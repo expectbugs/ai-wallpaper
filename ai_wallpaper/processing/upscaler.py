@@ -18,6 +18,7 @@ except ImportError:
 
 from ..core import get_logger, get_config
 from ..core.exceptions import UpscalerError
+from ..core.path_resolver import get_resolver
 
 
 class RealESRGANUpscaler:
@@ -35,11 +36,12 @@ class RealESRGANUpscaler:
         self.realesrgan_path = self._find_realesrgan()
         
         if not self.realesrgan_path:
+            resolver = get_resolver()
             error_msg = (
                 "Real-ESRGAN not found! Cannot proceed with 4K upscaling.\n"
                 "Real-ESRGAN is REQUIRED for ultra-high-quality 4K wallpapers.\n"
                 "Please install Real-ESRGAN:\n"
-                "  1. cd /home/user/ai-wallpaper\n"
+                f"  1. cd {resolver.project_root}\n"
                 "  2. git clone https://github.com/xinntao/Real-ESRGAN.git\n"
                 "  3. cd Real-ESRGAN\n"
                 "  4. pip install basicsr facexlib gfpgan\n"
@@ -55,19 +57,31 @@ class RealESRGANUpscaler:
         Returns:
             Path to Real-ESRGAN script or None
         """
-        # Get configured paths
+        resolver = get_resolver()
+        
+        # Check environment variable first
+        if env_path := resolver.find_executable('realesrgan-ncnn-vulkan'):
+            return env_path
+            
+        # Get configured paths from config
         realesrgan_paths = self.config.paths.get('models', {}).get('real_esrgan', [])
         
-        # Add common locations
-        common_paths = [
-            "/home/user/ai-wallpaper/Real-ESRGAN/inference_realesrgan.py",
-            "/home/user/Real-ESRGAN/inference_realesrgan.py",
+        # Build search paths using resolver
+        search_paths = [
+            resolver.project_root / "Real-ESRGAN/inference_realesrgan.py",
             Path.home() / "Real-ESRGAN/inference_realesrgan.py",
-            "/usr/local/bin/realesrgan-ncnn-vulkan",
-            Path(__file__).parent.parent.parent.parent / "Real-ESRGAN/inference_realesrgan.py"
+            Path("/opt/Real-ESRGAN/inference_realesrgan.py"),
+            resolver.get_data_dir() / "Real-ESRGAN/inference_realesrgan.py",
         ]
         
-        all_paths = realesrgan_paths + [str(p) for p in common_paths]
+        # Also check for the ncnn-vulkan executable
+        ncnn_paths = [
+            resolver.project_root / "Real-ESRGAN/realesrgan-ncnn-vulkan",
+            Path.home() / "Real-ESRGAN/realesrgan-ncnn-vulkan",
+            Path("/usr/local/bin/realesrgan-ncnn-vulkan"),
+        ]
+        
+        all_paths = realesrgan_paths + [str(p) for p in search_paths + ncnn_paths]
         
         for path in all_paths:
             path = Path(path).expanduser()

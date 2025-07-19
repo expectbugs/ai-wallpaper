@@ -1,0 +1,28 @@
+# Resolution Configuration
+resolution:
+  # Default resolution if not specified
+  default: "4K"
+  
+  # Quality mode
+  quality_mode: "ultimate"  # "fast", "balanced", "ultimate"
+  
+  # Whether to allow custom resolutions
+  allow_custom: true
+  
+  # Maximum supported resolution (to prevent memory issues)
+  max_width: 15360  # 16K width
+  max_height: 8640   # 16K height
+  
+  # Tiled refinement settings
+  tiled_refinement:
+    enabled: true
+    tile_size: 1024
+    overlap: 256
+    passes: 2
+    strength_decay: 0.1  # Reduce strength each pass
+    
+  # Upscaling preferences
+  upscaling:
+    prefer_integer_scales: true
+    max_single_scale: 4
+    ensemble_models: false  # Can enable for ultra quality

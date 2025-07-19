@@ -14,6 +14,7 @@ from typing import List, Optional, Dict, Any
 from .logger import get_logger
 from .exceptions import WallpaperError
 from .config_manager import get_config
+from .wallpaper_setter import WallpaperSetter as CrossPlatformSetter
 
 class WallpaperSetter:
     """Manages desktop wallpaper setting across different environments"""
@@ -28,8 +29,11 @@ class WallpaperSetter:
         self.auto_set = self.wallpaper_config.get('auto_set_wallpaper', True)
         self.de_config = self.wallpaper_config.get('desktop_environment', {})
         
-        # Desktop environment
-        self.desktop_env = self._detect_desktop_environment()
+        # Use the new cross-platform wallpaper setter
+        self.cross_platform_setter = CrossPlatformSetter()
+        
+        # Desktop environment (from cross-platform setter)
+        self.desktop_env = self.cross_platform_setter.desktop
         
     def _detect_desktop_environment(self) -> Optional[str]:
         """Auto-detect the current desktop environment
@@ -135,13 +139,16 @@ class WallpaperSetter:
             
         self.logger.info(f"Setting wallpaper on {de}: {image_path}")
         
-        # Call appropriate setter method
-        setter_method = getattr(self, f"_set_{de}_wallpaper", None)
-        if setter_method:
-            return setter_method(image_path)
-        else:
-            # Use generic command-based setter
-            return self._set_generic_wallpaper(de, image_path)
+        # Use the cross-platform setter
+        try:
+            success = self.cross_platform_setter.set_wallpaper(image_path)
+            if success:
+                self.logger.info("Successfully set wallpaper")
+            else:
+                self.logger.error("Failed to set wallpaper")
+            return success
+        except Exception as e:
+            raise WallpaperError(de, str(image_path), e)
             
     def _set_generic_wallpaper(self, desktop_env: str, image_path: Path) -> bool:
         """Generic wallpaper setter using configured commands

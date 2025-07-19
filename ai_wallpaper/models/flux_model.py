@@ -22,6 +22,7 @@ from PIL import Image
 from .base_model import BaseImageModel
 from ..core import get_logger, get_config
 from ..core.exceptions import ModelNotFoundError, ModelLoadError, GenerationError, UpscalerError
+from ..core.path_resolver import get_resolver
 from ..processing import get_upscaler
 from ..utils import get_file_manager
 
@@ -324,7 +325,10 @@ class FluxModel(BaseImageModel):
             
         # Save stage 1 output
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        stage1_path = Path(tempfile.gettempdir()) / f"flux_stage1_{timestamp}.png"
+        resolver = get_resolver()
+        temp_dir = resolver.get_temp_dir() / 'ai-wallpaper'
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        stage1_path = temp_dir / f"flux_stage1_{timestamp}.png"
         image.save(stage1_path, "PNG", quality=100)
         # Track for cleanup
         temp_files.append(stage1_path)
@@ -417,7 +421,8 @@ class FluxModel(BaseImageModel):
         filename = f"flux_4k_{timestamp}.png"
         
         # Use configured output path
-        output_dir = Path(config.paths.get('images_dir', tempfile.gettempdir()))
+        resolver = get_resolver()
+        output_dir = Path(config.paths.get('images_dir', str(resolver.get_data_dir() / 'wallpapers')))
         output_dir.mkdir(exist_ok=True)
         
         final_path = output_dir / filename

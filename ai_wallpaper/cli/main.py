@@ -53,9 +53,15 @@ def cli(ctx, config, verbose, dry_run):
 @click.option('--no-wallpaper', is_flag=True, help='Generate only, don\'t set wallpaper')
 @click.option('--save-stages', is_flag=True, help='Save intermediate stage images')
 @click.option('--output', type=click.Path(), help='Custom output path')
+@click.option('--resolution', type=str, 
+              help='Target resolution as WIDTHxHEIGHT (e.g., 3840x2160) or preset name')
+@click.option('--quality-mode', type=click.Choice(['fast', 'balanced', 'ultimate']),
+              default='balanced', help='Quality mode - ultimate takes longer but maximizes quality')
+@click.option('--no-tiled-refinement', is_flag=True,
+              help='Disable tiled refinement pass (faster but lower quality)')
 @click.pass_context
 def generate(ctx, prompt, theme, model, random_model, random_params, seed, 
-            no_upscale, no_wallpaper, save_stages, output):
+            no_upscale, no_wallpaper, save_stages, output, resolution, quality_mode, no_tiled_refinement):
     """Generate a new AI wallpaper
     
     This is the main command that generates a wallpaper using the selected model
@@ -87,7 +93,10 @@ def generate(ctx, prompt, theme, model, random_model, random_params, seed,
             no_upscale=no_upscale,
             no_wallpaper=no_wallpaper,
             save_stages=save_stages,
-            output_path=output
+            output_path=output,
+            resolution=resolution,
+            quality_mode=quality_mode,
+            no_tiled_refinement=no_tiled_refinement
         )
         
         # Display result

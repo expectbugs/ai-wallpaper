@@ -1,0 +1,79 @@
+# AI Wallpaper Default Configuration
+# All values can be overridden by environment variables or user configs
+
+system:
+  # Python paths - will be auto-detected if not set
+  python_venv: "${AI_WALLPAPER_VENV}"
+  python: "${AI_WALLPAPER_PYTHON}"
+  
+  # External executables - will be found in PATH if not set
+  ollama_path: "ollama"
+  realesrgan_path: null  # Will be auto-discovered
+  
+  # Generation settings
+  vram_monitoring: true
+  save_intermediate_stages: false
+  fail_loud: true  # No silent failures
+
+paths:
+  # These will be resolved at runtime based on platform
+  # Override with environment variables:
+  # AI_WALLPAPER_CONFIG, AI_WALLPAPER_CACHE, AI_WALLPAPER_DATA, AI_WALLPAPER_LOGS
+  config_dir: "~/.config/ai-wallpaper"
+  cache_dir: "~/.cache/ai-wallpaper"
+  data_dir: "~/.local/share/ai-wallpaper"
+  log_dir: "~/.local/state/ai-wallpaper"
+  temp_dir: "${TMPDIR:-/tmp}"
+  
+  # Relative to data_dir
+  wallpaper_dir: "wallpapers"
+  prompt_history: "prompt_history.jsonl"
+  
+models:
+  # Model search paths - environment variables will be expanded
+  search_paths:
+    - "${HF_HOME}/hub"
+    - "${TRANSFORMERS_CACHE}"
+    - "${XDG_CACHE_HOME}/huggingface/hub"
+    - "~/.cache/huggingface/hub"
+    - "./models"
+    - "~/.local/share/ai-wallpaper/models"
+    
+  # Model hints for discovery (not absolute paths)
+  flux:
+    hints:
+      - "black-forest-labs/FLUX.1-dev"
+      - "FLUX.1-dev"
+      - "flux1-dev"
+    
+  sdxl:
+    base_model_hints:
+      - "stabilityai/stable-diffusion-xl-base-1.0"
+      - "SDXL-base-1.0"
+    checkpoint_hints:
+      - "juggernaut_xl_v9.safetensors"
+      - "JuggernautXL_v9"
+    lora_hints:
+      - "Better_Picture_v3"
+      - "Photo_Enhance_v2"
+      - "Photorealistic_Slider_v1"
+      - "Real_Skin_Slider"
+      
+# API settings
+api:
+  openai:
+    api_key: "${OPENAI_API_KEY}"
+    organization: "${OPENAI_ORGANIZATION}"
+    
+  weather:
+    # Default location - override in user config
+    latitude: 42.6728
+    longitude: -88.5443
+    cache_dir: "${AI_WALLPAPER_CACHE}/weather"
+    
+# Logging
+logging:
+  level: INFO
+  max_bytes: 104857600  # 100MB
+  backup_count: 7
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

@@ -6,10 +6,10 @@ models:
     class: FluxModel
     enabled: true
     display_name: "FLUX.1-dev"
-    model_path_priority:  # Check in order
-      - "/home/user/.cache/huggingface/hub/models--black-forest-labs--FLUX.1-dev/snapshots/0ef5fff789c832c5c7f4e127f94c8b54bbcced44"
-      - "/home/user/.cache/huggingface/hub/models--black-forest-labs--FLUX.1-dev"
-      - "black-forest-labs/FLUX.1-dev"  # Fallback to download
+    model_hints:  # Model resolver will find these dynamically
+      - "black-forest-labs/FLUX.1-dev"
+      - "FLUX.1-dev"
+      - "models--black-forest-labs--FLUX.1-dev"  # HF cache format
     
     generation:
       dimensions: [1920, 1088]  # Must be divisible by 16
@@ -109,10 +109,30 @@ models:
     class: SdxlModel
     enabled: true
     display_name: "SDXL Ultimate Photorealistic"
-    model_path: "stabilityai/stable-diffusion-xl-base-1.0"  # Fallback
-    checkpoint_path: "/home/user/ai-wallpaper/models/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors"  # Primary - Juggernaut XL
+    
+    # Model variant selection
+    model_variant: "juggernaut"  # Options: "base", "juggernaut"
+    
+    # Base SDXL configuration
+    base_model:
+      model_path: "stabilityai/stable-diffusion-xl-base-1.0"
+      checkpoint_hints:  # Model resolver will find these dynamically
+        - "sdxl-base/sd_xl_base_1.0.safetensors"
+        - "sd_xl_base_1.0.safetensors"
+        - "checkpoints/sd_xl_base_1.0.safetensors"
+    
+    # Juggernaut XL configuration (alternative model)
+    juggernaut_model:
+      checkpoint_hints:  # Model resolver will find these dynamically
+        - "Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors"
+        - "juggernaut_xl_v9.safetensors"
+        - "checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors"
+    
+    # Refiner configuration (shared)
     refiner_model_path: "stabilityai/stable-diffusion-xl-refiner-1.0"  # Fallback
-    refiner_checkpoint_path: "/home/user/ai-wallpaper/models/sdxl-refiner/sd_xl_refiner_1.0.safetensors"  # Primary
+    refiner_checkpoint_hints:  # Model resolver will find these dynamically
+      - "sd_xl_refiner_1.0.safetensors"
+      - "sdxl-refiner/sd_xl_refiner_1.0.safetensors"
     
     generation:
       dimensions: [1344, 768]  # Native SDXL 16:9 - will be used in pipeline
@@ -186,26 +206,72 @@ models:
       max_count: 5  # Maximum simultaneous LoRAs
       weight_sum_max: 4.0  # Total weight limit
       available_loras:
-        detail_tweaker_xl:
-          path: "/home/user/ai-wallpaper/models/loras/detail/detail_tweaker_xl.safetensors"
-          weight_range: [0.8, 1.5]
+        # General Enhancement LoRAs (for all themes)
+        add_detail_xl:
+          hints:
+            - "add-detail-xl.safetensors"
+            - "detail/add-detail-xl.safetensors"
+          weight_range: [1.0, 2.0]
           categories: ["all"]
-          purpose: "Primary detail enhancement"
-        better_picture_more_details:
-          path: "/home/user/ai-wallpaper/models/loras/detail/better_picture_more_details.safetensors"
-          weight_range: [0.6, 1.0]
+          purpose: "Detail enhancement for SDXL"
+          download_url: "https://huggingface.co/PvDeep/Add-Detail-XL/resolve/main/add-detail-xl.safetensors"
+          file_size_mb: 228
+        photorealistic_slider:
+          hints:
+            - "photorealistic-slider-sdxl.safetensors"
+            - "photorealism/photorealistic-slider-sdxl.safetensors"
+          weight_range: [0.8, 1.2]
           categories: ["all"]
-          purpose: "Eye, skin, hair detail"
-        skin_realism_sdxl:
-          path: "/home/user/ai-wallpaper/models/loras/photorealism/skin_realism_sdxl.safetensors"
-          weight_range: [0.5, 0.8]
-          categories: ["LOCAL_MEDIA", "GENRE_FUSION"]
-          purpose: "Natural skin imperfections"
-        sdxl_film_photography:
-          path: "/home/user/ai-wallpaper/models/loras/effects/sdxl_film_photography.safetensors"
-          weight_range: [0.3, 0.6]
-          categories: ["ATMOSPHERIC", "SPACE_COSMIC", "TEMPORAL"]
-          purpose: "Film grain and cinematic look"
+          purpose: "Adjustable photorealism enhancement"
+        extremely_detailed:
+          hints:
+            - "extremely-detailed-sdxl.safetensors"
+            - "detail/extremely-detailed-sdxl.safetensors"
+          weight_range: [0.7, 1.0]
+          categories: ["all"]
+          purpose: "Enhanced detail generation"
+          download_url: "https://huggingface.co/ntc-ai/SDXL-LoRA-slider.extremely-detailed/resolve/main/extremely%20detailed.safetensors"
+        face_helper:
+          hints:
+            - "face-helper-sdxl.safetensors"
+            - "detail/face-helper-sdxl.safetensors"
+          weight_range: [0.6, 0.9]
+          categories: ["all"]
+          purpose: "Improved facial features"
+        
+        # Theme-Specific LoRAs
+        anime_slider:
+          hints:
+            - "anime-slider-sdxl.safetensors"
+            - "styles/anime-slider-sdxl.safetensors"
+          weight_range: [1.5, 2.0]
+          categories: ["ANIME_MANGA"]
+          purpose: "Anime style enhancement"
+          trigger_word: "anime"
+        cyberpunk_style:
+          hints:
+            - "cyberpunk-sdxl.safetensors"
+            - "styles/cyberpunk-sdxl.safetensors"
+          weight_range: [0.8, 1.2]
+          categories: ["GENRE_FUSION", "DIGITAL_PROGRAMMING"]
+          purpose: "Cyberpunk tech noir aesthetics"
+          trigger_word: "a cityscape in szn style"
+        scifi_70s:
+          hints:
+            - "scifi-70s-sdxl.safetensors"
+            - "styles/scifi-70s-sdxl.safetensors"
+          weight_range: [0.7, 1.0]
+          categories: ["SPACE_COSMIC", "TEMPORAL"]
+          purpose: "Retro sci-fi aesthetics"
+          trigger_word: "<s0><s1>"
+        fantasy_slider:
+          hints:
+            - "fantasy-slider-sdxl.safetensors"
+            - "styles/fantasy-slider-sdxl.safetensors"
+          weight_range: [0.8, 1.2]
+          categories: ["LOCAL_MEDIA", "GENRE_FUSION", "TEMPORAL"]
+          purpose: "Fantasy and magical elements"
+          trigger_word: "fantasy"
           
     prompt_requirements:
       max_words: 100

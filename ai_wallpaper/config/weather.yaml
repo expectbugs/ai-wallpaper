@@ -22,7 +22,7 @@ api:
 # Cache settings
 cache:
   enabled: true
-  directory: /home/user/ai-wallpaper/.weather_cache
+  directory: ".weather_cache"  # Default fallback, can be overridden with AI_WALLPAPER_CACHE
   expiration:
     grid: 86400      # 24 hours in seconds
     forecast: 3600   # 1 hour in seconds

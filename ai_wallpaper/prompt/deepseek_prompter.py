@@ -14,6 +14,7 @@ from pathlib import Path
 from .base_prompter import BasePrompter
 from ..core import get_logger, get_config
 from ..core.exceptions import PromptError
+from ..core.path_resolver import get_resolver
 
 class DeepSeekPrompter(BasePrompter):
     """Generate prompts using deepseek-r1:14b via Ollama"""
@@ -21,9 +22,30 @@ class DeepSeekPrompter(BasePrompter):
     def __init__(self):
         """Initialize DeepSeek prompter"""
         super().__init__("DeepSeek")
-        # Get Ollama path from config
+        # Get Ollama path from config or find it dynamically
         config = get_config()
-        self.ollama_path = config.system.get('ollama_path', '/usr/local/bin/ollama') if config.system else '/usr/local/bin/ollama'
+        resolver = get_resolver()
+        
+        # Try config first, then use resolver to find ollama
+        config_ollama = config.system.get('ollama_path') if config.system else None
+        if config_ollama and Path(config_ollama).exists():
+            self.ollama_path = config_ollama
+        else:
+            # Find ollama using resolver
+            ollama_search_paths = [
+                '/usr/local/bin',
+                '/opt/homebrew/bin',  # macOS ARM
+                str(Path.home() / '.local/bin'),
+                '/snap/bin',  # Snap packages
+            ]
+            
+            found = resolver.find_executable('ollama', ollama_search_paths)
+            if not found:
+                raise PromptError(self.name, FileNotFoundError(
+                    "Ollama not found! Install from https://ollama.ai or set AI_WALLPAPER_OLLAMA_PATH"
+                ))
+            
+            self.ollama_path = str(found)
         self.model_name = "deepseek-r1:14b"
         self._server_started = False
         self._server_process = None  # Store process handle to prevent zombies
