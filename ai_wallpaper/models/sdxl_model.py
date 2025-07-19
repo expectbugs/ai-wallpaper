@@ -30,6 +30,8 @@ from PIL import Image
 from .base_model import BaseImageModel
 from ..core import get_logger, get_config
 from ..core.exceptions import ModelNotFoundError, ModelLoadError, GenerationError, UpscalerError
+from ..core.path_resolver import get_resolver
+from .model_resolver import get_model_resolver
 from ..utils import get_resource_manager
 
 class SdxlModel(BaseImageModel):
@@ -66,29 +68,43 @@ class SdxlModel(BaseImageModel):
             # Clear resources for this model
             self.resource_manager.prepare_for_model(self.model_name)
             
-            # Check for Juggernaut XL first
-            juggernaut_path = Path("/home/user/ai-wallpaper/models/checkpoints/Juggernaut-XL_v9_RunDiffusionPhoto_v2.safetensors")
-            if juggernaut_path.exists():
-                self.logger.info("Loading Juggernaut XL v9 for superior photorealism...")
-                self.pipe = self._load_from_single_file(str(juggernaut_path))
-            else:
-                # Fallback to standard SDXL
-                model_path = self.config.get('model_path', 'stabilityai/stable-diffusion-xl-base-1.0')
-                checkpoint_path = self.config.get('checkpoint_path')
+            # Check which model variant to use
+            model_variant = self.config.get('model_variant', 'base').lower()
+            model_resolver = get_model_resolver()
+            
+            if model_variant == 'juggernaut':
+                # Try to load Juggernaut XL
+                juggernaut_config = self.config.get('juggernaut_model', {})
+                checkpoint_hints = juggernaut_config.get('checkpoint_hints', [])
+                juggernaut_path = model_resolver.find_checkpoint(checkpoint_hints)
                 
-                # Determine loading method
-                if checkpoint_path and Path(checkpoint_path).exists():
-                    # Load from single checkpoint file
-                    self.logger.info(f"Loading SDXL from checkpoint: {checkpoint_path}")
-                    self.pipe = self._load_from_single_file(checkpoint_path)
+                if juggernaut_path:
+                    self.logger.info("Loading Juggernaut XL v9...")
+                    self.logger.warning("Note: Juggernaut XL has modified architecture - standard SDXL LoRAs may not be compatible")
+                    self.pipe = self._load_from_single_file(str(juggernaut_path))
                 else:
-                    # Load from HuggingFace repo or directory
-                    self.logger.info(f"Loading SDXL pipeline from: {model_path}")
+                    self.logger.warning("Juggernaut XL not found, falling back to base SDXL")
+                    model_variant = 'base'
+            
+            if model_variant == 'base':
+                # Load standard SDXL
+                base_config = self.config.get('base_model', {})
+                model_path = base_config.get('model_path', 'stabilityai/stable-diffusion-xl-base-1.0')
+                checkpoint_hints = base_config.get('checkpoint_hints', [])
+                
+                # Try to find checkpoint file first (most reliable)
+                checkpoint_path = model_resolver.find_checkpoint(checkpoint_hints)
+                
+                if checkpoint_path:
+                    self.logger.info(f"Loading base SDXL from checkpoint: {checkpoint_path}")
+                    self.pipe = self._load_from_single_file(str(checkpoint_path))
+                else:
+                    # Fallback to HuggingFace
+                    self.logger.info(f"Loading SDXL pipeline from HuggingFace: {model_path}")
                     self.pipe = StableDiffusionXLPipeline.from_pretrained(
                         model_path,
                         torch_dtype=torch.float16,
-                        use_safetensors=True,
-                        variant="fp16"
+                        use_safetensors=True
                     )
             
             # Move to GPU
@@ -380,7 +396,12 @@ class SdxlModel(BaseImageModel):
         )
         
         if lora_info:
-            self.logger.info(f"Using LoRA: {lora_info['name']} (weight: {lora_info['weight']:.2f})")
+            if lora_info['count'] == 1:
+                lora = lora_info['stack'][0]
+                self.logger.info(f"Using LoRA: {lora['name']} (weight: {lora['weight']:.2f})")
+            else:
+                lora_names = [lora['name'] for lora in lora_info['stack']]
+                self.logger.info(f"Using {lora_info['count']} LoRAs: {', '.join(lora_names)} (total weight: {lora_info['total_weight']:.2f})")
             
         # Check if we should use ensemble of expert denoisers
         use_ensemble = (
@@ -430,7 +451,10 @@ class SdxlModel(BaseImageModel):
         
         # Save stage 1 output
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        stage1_path = Path(tempfile.gettempdir()) / f"sdxl_stage1_{timestamp}.png"
+        resolver = get_resolver()
+        temp_dir = resolver.get_temp_dir() / 'ai-wallpaper'
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        stage1_path = temp_dir / f"sdxl_stage1_{timestamp}.png"
         image.save(stage1_path, "PNG", quality=100)
         # Track for cleanup
         temp_files.append(stage1_path)
@@ -522,7 +546,10 @@ class SdxlModel(BaseImageModel):
         
         # Save refined image
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-        stage2_path = Path(tempfile.gettempdir()) / f"sdxl_stage2_{timestamp}.png"
+        resolver = get_resolver()
+        temp_dir = resolver.get_temp_dir() / 'ai-wallpaper'
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        stage2_path = temp_dir / f"sdxl_stage2_{timestamp}.png"
         refined.save(stage2_path, "PNG", quality=100)
         # Track for cleanup
         temp_files.append(stage2_path)
@@ -559,7 +586,10 @@ class SdxlModel(BaseImageModel):
         realesrgan_script = self._find_realesrgan()
         
         # Prepare paths
-        temp_output_dir = Path(tempfile.gettempdir()) / f"sdxl_upscaled_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        resolver = get_resolver()
+        temp_dir = resolver.get_temp_dir() / 'ai-wallpaper'
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_output_dir = temp_dir / f"sdxl_upscaled_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
         temp_output_dir.mkdir(exist_ok=True)
         # Track for cleanup
         temp_dirs.append(temp_output_dir)
@@ -674,7 +704,8 @@ class SdxlModel(BaseImageModel):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"sdxl_4k_{timestamp}.png"
         
-        output_dir = Path(config.paths.get('images_dir', tempfile.gettempdir()))
+        resolver = get_resolver()
+        output_dir = Path(config.paths.get('images_dir', str(resolver.get_data_dir() / 'wallpapers')))
         output_dir.mkdir(exist_ok=True)
         
         final_path = output_dir / filename
@@ -767,32 +798,52 @@ class SdxlModel(BaseImageModel):
         loaded_loras = []
         category = theme.get('category', 'UNKNOWN')
         
-        # Theme-specific LoRA presets
+        # Theme-specific LoRA presets using SDXL-compatible LoRAs
         theme_presets = {
             "NATURE_EXPANDED": {
-                "required": ["better_picture_more_details"],
-                "optional": ["sdxl_film_photography"],
-                "weights": {"better_picture_more_details": 0.9, "sdxl_film_photography": 0.4}
+                "required": ["extremely_detailed_sdxl"],
+                "optional": ["photorealistic_slider_sdxl"],
+                "weights": {"extremely_detailed_sdxl": 0.9, "photorealistic_slider_sdxl": 0.8}
             },
             "LOCAL_MEDIA": {
-                "required": ["skin_realism_sdxl", "better_picture_more_details"],
-                "optional": [],
-                "weights": {"skin_realism_sdxl": 0.8, "better_picture_more_details": 0.9}
+                "required": ["face_helper_sdxl", "extremely_detailed_sdxl"],
+                "optional": ["fantasy_slider_sdxl"],
+                "weights": {"face_helper_sdxl": 0.8, "extremely_detailed_sdxl": 0.9, "fantasy_slider_sdxl": 1.0}
             },
             "URBAN_CITYSCAPE": {
-                "required": ["better_picture_more_details"],
-                "optional": ["sdxl_film_photography"],
-                "weights": {"better_picture_more_details": 0.8, "sdxl_film_photography": 0.3}
+                "required": ["extremely_detailed_sdxl"],
+                "optional": ["photorealistic_slider_sdxl"],
+                "weights": {"extremely_detailed_sdxl": 0.8, "photorealistic_slider_sdxl": 1.0}
             },
             "GENRE_FUSION": {
-                "required": ["better_picture_more_details"],
-                "optional": ["skin_realism_sdxl", "sdxl_film_photography"],
-                "weights": {"better_picture_more_details": 0.8, "skin_realism_sdxl": 0.6, "sdxl_film_photography": 0.4}
+                "required": ["extremely_detailed_sdxl"],
+                "optional": ["cyberpunk_sdxl", "fantasy_slider_sdxl"],
+                "weights": {"extremely_detailed_sdxl": 0.8, "cyberpunk_sdxl": 1.0, "fantasy_slider_sdxl": 1.0}
+            },
+            "SPACE_COSMIC": {
+                "required": ["extremely_detailed_sdxl"],
+                "optional": ["scifi_70s_sdxl"],
+                "weights": {"extremely_detailed_sdxl": 0.8, "scifi_70s_sdxl": 0.9}
+            },
+            "TEMPORAL": {
+                "required": ["extremely_detailed_sdxl"],
+                "optional": ["scifi_70s_sdxl", "fantasy_slider_sdxl"],
+                "weights": {"extremely_detailed_sdxl": 0.8, "scifi_70s_sdxl": 0.9, "fantasy_slider_sdxl": 1.0}
+            },
+            "ANIME_MANGA": {
+                "required": ["anime_slider_sdxl"],
+                "optional": ["extremely_detailed_sdxl"],
+                "weights": {"anime_slider_sdxl": 1.8, "extremely_detailed_sdxl": 0.7}
+            },
+            "DIGITAL_PROGRAMMING": {
+                "required": ["cyberpunk_sdxl"],
+                "optional": ["extremely_detailed_sdxl"],
+                "weights": {"cyberpunk_sdxl": 1.1, "extremely_detailed_sdxl": 0.8}
             },
             "DEFAULT": {
-                "required": ["better_picture_more_details"],
-                "optional": ["skin_realism_sdxl"],
-                "weights": {"better_picture_more_details": 0.8, "skin_realism_sdxl": 0.6}
+                "required": ["extremely_detailed_sdxl"],
+                "optional": ["photorealistic_slider_sdxl", "face_helper_sdxl"],
+                "weights": {"extremely_detailed_sdxl": 0.8, "photorealistic_slider_sdxl": 1.0, "face_helper_sdxl": 0.8}
             }
         }
         
@@ -863,19 +914,30 @@ class SdxlModel(BaseImageModel):
                 
             except Exception as e:
                 self.logger.error(f"Failed to load LoRA stack: {e}")
-                # Try fallback to single LoRA
+                
+                # For compatibility errors, don't try fallback since it will also fail
+                if "size mismatch" in str(e).lower():
+                    self.logger.warning("LoRA size mismatch detected - this usually indicates architecture incompatibility")
+                    self.logger.warning("Generation will continue without LoRAs")
+                    return None
+                
+                # For other errors, try fallback to single LoRA
                 if loaded_loras:
+                    self.logger.info("Attempting fallback to single LoRA...")
                     try:
                         lora = loaded_loras[0]
+                        self.logger.info(f"Trying single LoRA: {lora['name']} @ {lora['weight']:.2f}")
                         self.pipe.load_lora_weights(lora['path'])
                         self.pipe.fuse_lora(lora_scale=lora['weight'])
+                        self.logger.info("Single LoRA fallback successful")
                         return {
                             "stack": [lora],
                             "total_weight": lora['weight'],
                             "count": 1
                         }
-                    except:
-                        pass
+                    except Exception as fallback_e:
+                        self.logger.warning(f"Single LoRA fallback also failed: {fallback_e}")
+                        self.logger.info("Generation will continue without LoRAs")
                         
         return None
         
@@ -891,35 +953,79 @@ class SdxlModel(BaseImageModel):
     def _scan_available_loras(self) -> Dict[str, Dict[str, Any]]:
         """Scan and catalog all available LoRAs"""
         loras = {}
-        lora_base_dir = Path("/home/user/ai-wallpaper/models/loras")
+        model_resolver = get_model_resolver()
+        # Look for SDXL-specific LoRA directory in model search paths
+        lora_base_dir = None
+        for search_path in model_resolver.search_paths:
+            potential_lora_dir = search_path / 'loras-sdxl'
+            if potential_lora_dir.exists():
+                lora_base_dir = potential_lora_dir
+                break
+        
+        if not lora_base_dir:
+            # Use default location with SDXL-specific directory
+            resolver = get_resolver()
+            lora_base_dir = resolver.get_data_dir() / 'models' / 'loras-sdxl'
         
         if not lora_base_dir.exists():
             return loras
             
-        # Define LoRA metadata
+        # Define LoRA metadata for SDXL-compatible LoRAs
         lora_metadata = {
-            # Skip detail_tweaker_xl - it's 4GB which is too large for a LoRA
-            "better_picture_more_details.safetensors": {
-                "name": "better_picture_more_details",
+            # General Enhancement LoRAs (for all themes)
+            "extremely-detailed-sdxl.safetensors": {
+                "name": "extremely_detailed_sdxl",
                 "category": "detail",
-                "weight_range": [0.6, 1.0],
-                "purpose": "Eye, skin, hair detail",
+                "weight_range": [0.7, 1.0],
+                "purpose": "Enhanced detail generation",
                 "compatible_themes": ["all"]
             },
-            "skin_realism_sdxl.safetensors": {
-                "name": "skin_realism_sdxl",
-                "category": "photorealism",
-                "weight_range": [0.5, 0.8],
-                "purpose": "Natural skin imperfections",
-                "trigger": "Detailed natural skin and blemishes",
-                "compatible_themes": ["LOCAL_MEDIA", "GENRE_FUSION"]
+            "face-helper-sdxl.safetensors": {
+                "name": "face_helper_sdxl",
+                "category": "detail",
+                "weight_range": [0.6, 0.9],
+                "purpose": "Improved facial features",
+                "compatible_themes": ["all"]
             },
-            "sdxl_film_photography.safetensors": {
-                "name": "sdxl_film_photography",
-                "category": "effects",
-                "weight_range": [0.3, 0.6],
-                "purpose": "Film grain, cinematic look",
-                "compatible_themes": ["ATMOSPHERIC", "SPACE_COSMIC", "TEMPORAL"]
+            "photorealistic-slider-sdxl.safetensors": {
+                "name": "photorealistic_slider_sdxl",
+                "category": "photorealism",
+                "weight_range": [0.8, 1.2],
+                "purpose": "Adjustable photorealism enhancement",
+                "compatible_themes": ["all"]
+            },
+            # Theme-Specific LoRAs
+            "anime-slider-sdxl.safetensors": {
+                "name": "anime_slider_sdxl",
+                "category": "style",
+                "weight_range": [1.5, 2.0],
+                "purpose": "Anime style enhancement",
+                "trigger": "anime",
+                "compatible_themes": ["ANIME_MANGA"]
+            },
+            "cyberpunk-sdxl.safetensors": {
+                "name": "cyberpunk_sdxl",
+                "category": "style",
+                "weight_range": [0.8, 1.2],
+                "purpose": "Cyberpunk tech noir aesthetics",
+                "trigger": "a cityscape in szn style",
+                "compatible_themes": ["GENRE_FUSION", "DIGITAL_PROGRAMMING"]
+            },
+            "scifi-70s-sdxl.safetensors": {
+                "name": "scifi_70s_sdxl",
+                "category": "style",
+                "weight_range": [0.7, 1.0],
+                "purpose": "Retro sci-fi aesthetics",
+                "trigger": "<s0><s1>",
+                "compatible_themes": ["SPACE_COSMIC", "TEMPORAL"]
+            },
+            "fantasy-slider-sdxl.safetensors": {
+                "name": "fantasy_slider_sdxl",
+                "category": "style",
+                "weight_range": [0.8, 1.2],
+                "purpose": "Fantasy and magical elements",
+                "trigger": "fantasy",
+                "compatible_themes": ["LOCAL_MEDIA", "GENRE_FUSION", "TEMPORAL"]
             }
         }
         
@@ -1044,12 +1150,13 @@ class SdxlModel(BaseImageModel):
         # Get configured paths
         realesrgan_paths = config.paths.get('models', {}).get('real_esrgan', [])
         
-        # Add common locations
+        # Add common locations using resolver
+        resolver = get_resolver()
         common_paths = [
-            "/home/user/ai-wallpaper/Real-ESRGAN/inference_realesrgan.py",
-            "/home/user/Real-ESRGAN/inference_realesrgan.py",
+            resolver.project_root / "Real-ESRGAN/inference_realesrgan.py",
             Path.home() / "Real-ESRGAN/inference_realesrgan.py",
-            "/usr/local/bin/realesrgan-ncnn-vulkan"
+            Path("/opt/Real-ESRGAN/inference_realesrgan.py"),
+            Path("/usr/local/bin/realesrgan-ncnn-vulkan")
         ]
         
         all_paths = realesrgan_paths + [str(p) for p in common_paths]

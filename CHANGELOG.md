@@ -1,5 +1,21 @@
 # Changelog
 
+## [4.3.1]
+
+### Fixed
+- SDXL LoRA architecture incompatibility between Juggernaut XL v9 and standard LoRAs
+- LoRA scanning now uses `/loras-sdxl/` directory for SDXL-compatible LoRAs
+- Updated LoRA metadata to match available SDXL-specific LoRA files
+- Theme presets now reference correct SDXL-compatible LoRA names
+- Size mismatch errors eliminated - LoRAs now load successfully
+
+### Enhanced
+- Expanded theme-specific LoRA mappings for better style coverage
+- Added support for 8 additional theme categories in LoRA selection
+- Multi-LoRA loading with proper weight distribution (2.6/4.0 total weight)
+
+---
+
 ## [4.3.0]
 
 ### Added
