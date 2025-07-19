@@ -1,19 +1,19 @@
 # Cron Setup
 
-Instructions for automatic daily wallpaper generation at 6:00 AM using cron.
+Instructions for automatic daily wallpaper generation at 6:00 AM using the unified CLI.
 
 ## Components
 
-### 1. Wrapper Script: `run_daily_wallpaper.sh`
+### 1. Wrapper Script: `run_ai_wallpaper.sh`
 - Sets up environment for cron execution
 - Activates Python virtual environment
-- Handles log rotation (30 days)
-- Captures output to log files
+- Uses unified `ai-wallpaper` CLI
+- Handles log rotation and output capture
 
 ### 2. Setup Script: `setup_cron.sh`
-- Installs cron job
-- Shows current crontab
-- Asks for confirmation
+- Installs cron job automatically
+- Validates cron service
+- Shows current crontab for confirmation
 
 ## Installation
 
@@ -31,14 +31,14 @@ cd /home/user/ai-wallpaper
 
 2. Add this line:
    ```
-   0 6 * * * /home/user/ai-wallpaper/run_daily_wallpaper.sh
+   0 6 * * * /home/user/ai-wallpaper/run_ai_wallpaper.sh
    ```
 
 3. Save and exit
 
 ## Cron Schedule Explanation
 ```
-0 6 * * * /home/user/ai-wallpaper/run_daily_wallpaper.sh
+0 6 * * * /home/user/ai-wallpaper/run_ai_wallpaper.sh
 │ │ │ │ │
 │ │ │ │ └─── Day of week (0-7, Sunday is 0 or 7)
 │ │ │ └───── Month (1-12)
@@ -62,17 +62,17 @@ ls -la /home/user/ai-wallpaper/logs/
 
 Test the wrapper script:
 ```bash
-/home/user/ai-wallpaper/run_daily_wallpaper.sh
+/home/user/ai-wallpaper/run_ai_wallpaper.sh
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **DISPLAY not set** - Wrapper script sets `DISPLAY=:0`
-2. **Python packages not found** - Wrapper activates venv automatically
-3. **Ollama server not running** - Python script starts it automatically
-4. **No wallpaper change** - Check logs in `/home/user/ai-wallpaper/logs/`
+1. **DISPLAY not set** - Wrapper script sets `DISPLAY=:0` automatically
+2. **Virtual environment not found** - Configure `AI_WALLPAPER_VENV` environment variable
+3. **Model dependencies missing** - Check model requirements (VRAM, API keys)
+4. **No wallpaper change** - Check logs and desktop environment detection
 
 ### Log Files
 

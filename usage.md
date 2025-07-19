@@ -95,14 +95,18 @@ Based on my thorough analysis of your AI wallpaper project, here's a complete ov
 
 ### **SDXL + LoRA** (AI Art Focus)
 - **Resolution Pipeline**: 1920x1024 → optional img2img → Real-ESRGAN 2x → 4K
-- **LoRA Features**: Auto-selection by theme category
+- **LoRA System**: 8 LoRAs with automatic theme-based selection
+  - **General LoRAs**: photorealistic slider, extremely detailed, face helper (apply to all themes)
+  - **Theme-Specific**: anime slider, cyberpunk style, 70s sci-fi, fantasy slider
+  - **Multi-LoRA**: Up to 5 simultaneous LoRAs, 4.0 total weight limit
 - **Requirements**: 16GB VRAM
 - **Generation Time**: ~8 minutes
 - **Configurable Parameters**:
   - `scheduler_options`: Multiple scheduler choices for randomization
   - `steps_range: [30, 75]`
   - `guidance_range: [5.0, 12.0]`
-  - LoRA weights and auto-selection by theme
+  - Individual LoRA weight ranges and trigger words
+  - Theme-to-LoRA mapping system
 
 ## ⚙️ Configuration Files Deep Dive
 
@@ -111,6 +115,7 @@ Based on my thorough analysis of your AI wallpaper project, here's a complete ov
 - **Pipeline Settings**: 3-stage quality pipelines for each model
 - **Random Selection**: Weighted model selection (flux: 35, dalle3: 25, gpt_image_1: 25, sdxl: 15)
 - **Quality Settings**: Always maximum (jpeg_quality: 100, png_compression: 0)
+- **LoRA Configuration**: 8 SDXL LoRAs with theme mapping and weight optimization
 - **API Configuration**: Environment variable expansion for keys
 
 ### **settings.yaml** - Application Behavior
@@ -239,7 +244,7 @@ crontab -e
 ### **Model Behavior Customization**
 - **FLUX**: Adjust steps (50-100), guidance (2.0-4.0), memory optimizations
 - **DALL-E**: Quality settings, style preferences, timeout values
-- **SDXL**: Scheduler selection, LoRA weights, img2img refinement
+- **SDXL**: Scheduler selection, 8 LoRAs with theme-based auto-selection, individual LoRA weight ranges, img2img refinement
 - **All Models**: Custom prompt requirements, pipeline modifications
 
 ### **Theme System Customization**

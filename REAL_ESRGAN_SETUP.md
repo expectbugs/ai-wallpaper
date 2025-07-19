@@ -1,6 +1,6 @@
 # Real-ESRGAN Installation
 
-Real-ESRGAN is required for 4K upscaling.
+Real-ESRGAN is required for high-quality 4K upscaling across all AI models.
 
 ## Installation Steps
 
@@ -11,10 +11,8 @@ cd /home/user/ai-wallpaper
 git clone https://github.com/xinntao/Real-ESRGAN.git
 cd Real-ESRGAN
 
-# Install dependencies
-pip install basicsr
-pip install facexlib
-pip install gfpgan
+# Install dependencies (ensure virtual environment is activated)
+pip install basicsr facexlib gfpgan
 pip install -r requirements.txt
 python setup.py develop
 
@@ -30,20 +28,27 @@ cd /home/user/ai-wallpaper/Real-ESRGAN
 python inference_realesrgan.py --help
 ```
 
+Test with the AI wallpaper system:
+```bash
+cd /home/user/ai-wallpaper
+./ai-wallpaper test --component upscaler
+```
+
 ## Expected Locations
 
-The script looks for Real-ESRGAN in these locations:
-- `/home/user/ai-wallpaper/Real-ESRGAN/inference_realesrgan.py`
+The upscaler component automatically searches for Real-ESRGAN in:
+- `/home/user/ai-wallpaper/Real-ESRGAN/inference_realesrgan.py` (recommended)
 - `/home/user/Real-ESRGAN/inference_realesrgan.py`
 - `~/Real-ESRGAN/inference_realesrgan.py`
-- `/usr/local/bin/realesrgan-ncnn-vulkan`
 
-If Real-ESRGAN is not found, the script will fail.
+Path is configurable in `ai_wallpaper/config/paths.yaml`
 
 ## GPU Settings
 
-Default settings:
-- Model: RealESRGAN_x4plus
-- Tile size: 1024 pixels
+Default settings (configurable in `ai_wallpaper/config/models.yaml`):
+- Model: RealESRGAN_x4plus (downloaded automatically)
+- Tile size: VRAM-aware auto-detection (typically 1024 pixels)
 - Precision: fp32
-- Scale: 2x (1920x1080 → 3840x2160)
+- Scale: Model-dependent (2x for SDXL, 4x for FLUX/DALL-E)
+
+The system automatically adjusts tile size based on available VRAM to prevent out-of-memory errors.
