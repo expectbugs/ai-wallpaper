@@ -14,13 +14,13 @@ SSD2: 1TB m.2 NVMe 4th gen
 HDD: 3TB 7200rpm HDD
 Display:0.0 - Sony Bravia 55" 4k OLED TV
 
-## 🚨 CRITICAL: Error Philosophy
+## CRITICAL: Error Philosophy
 
 Remember, NO SILENT FAILURES. All errors should be loud and proud. Every part of every function should either work perfectly or the script should fail completely with verbose errors. We must keep it as easy to fix as possible.
 
 Also remember, it does not matter how long it takes, or how much space it uses, the only priority in this project is amazing, incredibly detailed, ultimate high quality images.
 
-## 🔧 Current Pipeline Architecture (v4.5.4)
+## Current Pipeline Architecture (v4.5.4)
 
 ### Stage 1: Base Generation
 - SDXL at optimal resolution (typically 1344x768)
@@ -43,7 +43,7 @@ Also remember, it does not matter how long it takes, or how much space it uses, 
 - Progressive Real-ESRGAN 2x steps
 - Lossless PNG throughout (compress_level=0)
 
-## ✅ SWPO Implementation (v4.5.4)
+## SWPO Implementation (v4.5.4)
 
 **Previous Problem**: Visible seams in extreme aspect ratio expansions
 **Solution Implemented**: Sliding Window Progressive Outpainting (SWPO)
@@ -59,7 +59,7 @@ Also remember, it does not matter how long it takes, or how much space it uses, 
 ./ai-wallpaper generate --resolution 5376x768 --no-swpo  # Use original method
 ```
 
-## 📁 Key Files & Their Roles
+## Key Files & Their Roles
 
 - `models/sdxl_model.py` - Pipeline orchestration, stage management
 - `processing/aspect_adjuster.py` - Progressive outpainting implementation
@@ -67,15 +67,15 @@ Also remember, it does not matter how long it takes, or how much space it uses, 
 - `config/resolution.yaml` - Quality/resolution settings
 - `generation_metadata` dict - Tracks boundaries, seams, processing info
 
-## 💡 Critical Technical Insights
+## Critical Technical Insights
 
 1. **Denoising Strength**: Must be 0.8+ for content generation (0.35 only makes colors)
 2. **Context Loss**: Each expansion step loses original context → seams
-3. **Boundary Tracking**: Track where NEW content meets OLD (not just original position)
+3. **Boundary Tracking**: Track where new content meets old (not just original position)
 4. **Mask Blur**: Bigger is better - 40% of new content dimension minimum
 5. **Multi-Pass**: Each pass refines the transition zone
 
-## 🔍 Debugging Commands
+## Debugging Commands
 
 ```bash
 # Visualize all stages
@@ -92,7 +92,7 @@ Also remember, it does not matter how long it takes, or how much space it uses, 
 ./ai-wallpaper generate --resolution 21600x2160 --swpo --save-stages
 ```
 
-## 🎯 Remember the Goals
+## Remember the Goals
 
 1. **QUALITY OVER ALL** - No speed/space limits
 2. **NO HIDDEN ERRORS** - Fail loud and clear

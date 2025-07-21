@@ -2,14 +2,14 @@
 
 ## [4.5.4] - 2025-07-21 - Sliding Window Progressive Outpainting (SWPO)
 
-### 🎯 Major Feature - SWPO Implementation
+### Major Feature - SWPO Implementation
 - **Revolutionary Outpainting Method**: Replaced large expansion steps with sliding windows
   - 200px windows with 80% overlap for maximum context preservation
   - Eliminates visible seams in extreme aspect ratio expansions
   - Each window sees mostly existing content, ensuring perfect continuity
   - Supports expansions up to 8x aspect ratio change
 
-### ✨ SWPO Features
+### SWPO Features
 - **Configurable Parameters**:
   - Window size: 100-300px (default: 200px)
   - Overlap ratio: 0.0-1.0 (default: 0.8)
@@ -22,41 +22,41 @@
   - `--overlap-ratio`: Set overlap between windows
   - CLI parameters override configuration file settings
 
-### 🔧 Technical Implementation
+### Technical Implementation
 - **Smart Strategy Calculator**: Automatically plans optimal window progression
 - **Gradient Masking**: Smooth transitions between windows with edge blur
 - **Memory Management**: Periodic CUDA cache clearing prevents OOM errors
 - **Stage Saving**: Full support for `--save-stages` to visualize each window
 - **Automatic Fallback**: Seamlessly falls back to original method when disabled
 
-### 📊 Performance Impact
+### Performance Impact
 - **Old Method**: 1344x768 → 5376x768 in 3 large steps (visible seams)
 - **SWPO Method**: Same expansion in ~20 small windows (seamless result)
 - **Generation Time**: Linear with expansion size (more windows = more time)
 - **Quality**: Dramatically improved for extreme aspect ratios
 
-### 🐛 Bug Fixes
+### Bug Fixes
 - Fixed config access using dictionary notation instead of attribute access
 - Ensured CLI parameters properly flow through to SDXL model
 - Added proper None checking for CLI override logic
 
 ## [4.5.3] - 2025-07-20 - Comprehensive Fail-Loud Refactor
 
-### 🚨 Major Refactoring - Fail-Loud Philosophy Implementation
+### Major Refactoring - Fail-Loud Philosophy Implementation
 - **Complete Error Handling Overhaul**: Transformed entire codebase to follow strict fail-loud principles
   - Replaced 50+ instances of functions returning None/False with proper exceptions
   - Eliminated 15+ empty except blocks
   - Removed all silent fallback behaviors (except intentional CPU fallback support)
   - Every error now raises specific exceptions with verbose, actionable messages
 
-### 🐛 Critical Fixes
+### Critical Fixes
 - **Version Consistency**: Updated all version strings from 3.0.0 → 4.5.2
 - **Wallpaper Setter**: Complete rewrite - all methods now raise WallpaperError on failure
 - **Logger**: Fixed silent fallbacks and improved error context
 - **Path Resolver**: Added proper error handling for directory creation
 - **File Manager**: All operations now raise FileManagerError instead of returning None/True
 
-### 🔧 Infrastructure Improvements
+### Infrastructure Improvements
 - **Dynamic Path Configuration**: Replaced hardcoded paths with environment variables
   - `${AI_WALLPAPER_ROOT}` for project root
   - `${AI_WALLPAPER_VENV}` for virtual environment
@@ -76,7 +76,7 @@
 
 ## [4.5.2] - 2025-07-20 - Enhanced Seam Detection & Multi-Pass Outpainting
 
-### 🎨 Quality Improvements
+### Quality Improvements
 - **Multi-Pass Outpainting**: Implemented progressive strength reduction for natural transitions
   - 3-5 passes per expansion step with decreasing denoising strength
   - Each pass refines the transition zone for seamless blending
@@ -92,7 +92,7 @@
   - Lower detection thresholds for catching subtle seams
   - Wider refinement masks (3x boundary width) for better blending
 
-### 🔧 Technical Changes
+### Technical Changes
 - **Parameter Fixes**: 
   - Fixed refiner using wrong parameter name ('strength' → 'denoising_strength')
   - Added proper metadata initialization for boundary tracking
@@ -103,7 +103,7 @@
   - Previously only tracked original content position
   - Critical for accurate seam detection and refinement
 
-### 🐛 Known Issues
+### Known Issues
 - Seams still visible in some extreme aspect ratio expansions
 - Working on new Sliding Window Progressive Outpainting (SWPO) approach
 
@@ -111,14 +111,14 @@
 
 ## [4.5.1] - 2025-07-20 - Zero Quality Loss Update
 
-### 🚨 Critical Fix
+### Critical Fix
 - **Lossless PNG Saves**: Fixed catastrophic quality loss where 20K+ images were only 0.5MB
   - TiledRefiner was missing PNG format specification
   - Created centralized `save_lossless_png()` utility
   - All saves now use `compress_level=0` for zero compression
   - File sizes now correct: 20K image ~30-80MB as expected
 
-### 🔧 Technical Changes
+### Technical Changes
 - Removed all JPEG-style `quality` parameters from PNG saves
 - Added explicit `'PNG'` format specification everywhere
 - Implemented file size validation to catch quality issues
@@ -128,7 +128,7 @@
 
 ## [4.5.0] - 2025-07-20 - Ultimate Quality System: No Limits Edition
 
-### 🚀 Major Features
+### Major Features
 - **NO SIZE LIMITS**: Completely removed all arbitrary resolution restrictions
   - Dynamic VRAM-based strategy selection (full → tiled → CPU offload)
   - Processes ANY resolution with automatic resource management
@@ -146,7 +146,7 @@
   - Overlapping tiles with seamless blending
   - Automatic fallback to smaller tiles when needed
 
-### 🔧 Critical Fixes
+### Critical Fixes
 - **Ensemble Mode Disabled**: Fixed partial denoising issue
   - Was causing noise/artifacts in base generation
   - Now uses single-pass generation with full 80 steps
@@ -160,7 +160,7 @@
   - Outpainting: 80 steps with full denoising
   - Refinement: Adaptive strength based on aspect changes
 
-### 🎨 Enhanced Features
+### Enhanced Features
 - **VRAMCalculator**: Accurate memory requirement predictions
 - **CPUOffloadRefiner**: Last-resort processing for extreme sizes
 - **Adaptive Parameters**: Blur, steps, and guidance scale with expansion

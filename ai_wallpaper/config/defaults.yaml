@@ -13,7 +13,7 @@ system:
   # Generation settings
   vram_monitoring: true
   save_intermediate_stages: false
-  fail_loud: true  # No silent failures
+  fail_loud: true
 
 paths:
   # These will be resolved at runtime based on platform

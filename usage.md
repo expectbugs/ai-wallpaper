@@ -2,7 +2,7 @@
 
 High-quality wallpaper generation using AI models with weather integration.
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Generate with default settings (FLUX, 4K, random theme)
@@ -15,7 +15,7 @@ High-quality wallpaper generation using AI models with weather integration.
 ./ai-wallpaper generate --model sdxl --resolution ultrawide_4K
 ```
 
-## 📋 Generate Command - All Options
+## Generate Command - All Options
 
 ```bash
 ./ai-wallpaper generate [OPTIONS]
@@ -56,7 +56,7 @@ High-quality wallpaper generation using AI models with weather integration.
 - `--verbose` - Enable verbose output
 - `--dry-run` - Show execution plan without running
 
-## 🎯 Models & Capabilities
+## Models & Capabilities
 
 ### FLUX.1-dev (Default, Best Quality)
 - **Resolution**: Any resolution with 1MP optimal generation
@@ -154,7 +154,7 @@ High-quality wallpaper generation using AI models with weather integration.
 ./ai-wallpaper --verbose --dry-run generate --model sdxl
 ```
 
-## 🔧 Other Commands
+## Other Commands
 
 ### Test System
 ```bash
@@ -176,7 +176,7 @@ High-quality wallpaper generation using AI models with weather integration.
 ./ai-wallpaper models --check flux            # Check model readiness
 ```
 
-## ⚙️ Configuration Files
+## Configuration Files
 
 Located in `ai_wallpaper/config/`:
 
@@ -188,7 +188,7 @@ Located in `ai_wallpaper/config/`:
 - **`paths.yaml`** - Directory paths
 - **`settings.yaml`** - Desktop environment settings
 
-## 🔄 Automated Scheduling
+## Automated Scheduling
 
 ```bash
 # Set up daily generation at 6 AM
@@ -199,7 +199,7 @@ crontab -e
 # Add: 0 6 * * * /home/user/ai-wallpaper/run_ai_wallpaper.sh
 ```
 
-## 🎨 Theme System
+## Theme System
 
 60+ curated themes across 10 categories:
 - **LOCAL_MEDIA** (30%): Star Trek, Marvel, Doctor Who, Final Fantasy
@@ -208,7 +208,7 @@ crontab -e
 - **SPACE_COSMIC** (12%): Cosmic horror and space phenomena
 - **And 6 more categories** with hundreds of theme variations
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ```bash
 # Verbose mode for debugging
@@ -224,7 +224,7 @@ crontab -e
 ./ai-wallpaper test --quick
 ```
 
-## 📊 Quality Modes
+## Quality Modes
 
 - **Fast**: Basic generation, no tiled refinement (~5-8 minutes)
 - **Balanced**: Standard quality with moderate refinement (~8-15 minutes)  
@@ -232,7 +232,7 @@ crontab -e
 
 Time varies by model and target resolution. Higher resolutions take longer but produce superior results.
 
-## 🚀 Advanced Features (v4.5.4)
+## Advanced Features (v4.5.4)
 
 ### Extreme Resolution Support
 - **Extreme Resolutions**: Generate at 16K+, ultrawide, any aspect ratio
