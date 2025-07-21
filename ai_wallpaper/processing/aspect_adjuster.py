@@ -46,7 +46,9 @@ class AspectAdjuster:
         
         # Load configuration
         # ConfigManager has resolution as an attribute, not a dict key
-        resolution_config = self.config.resolution if hasattr(self.config, 'resolution') else {}
+        # The resolution.yaml has a top-level 'resolution' key, so we need to access it
+        resolution_data = self.config.resolution if hasattr(self.config, 'resolution') else {}
+        resolution_config = resolution_data.get('resolution', {})
         aspect_config = resolution_config.get('aspect_adjustment', {})
         self.enabled = aspect_config.get('enabled', True)
         
@@ -282,7 +284,8 @@ class AspectAdjuster:
         NO ERROR TOLERANCE - FAIL LOUD
         """
         current_path = image_path
-        resolution_config = self.config.resolution if hasattr(self.config, 'resolution') else {}
+        resolution_data = self.config.resolution if hasattr(self.config, 'resolution') else {}
+        resolution_config = resolution_data.get('resolution', {})
         swpo_config = resolution_config.get('progressive_outpainting', {}).get('sliding_window', {})
         
         # SWPO-specific settings
@@ -354,9 +357,14 @@ class AspectAdjuster:
             # Very light refinement pass on the full image
             unification_strength = swpo_config.get('unification_strength', 0.15)
             
+            # Create a very light mask for the entire image (inpainting pipeline requires mask)
+            # Use a light gray mask to allow subtle refinement across the whole image
+            mask = Image.new('L', (final_image.width, final_image.height), color=128)
+            
             result = self.pipeline(
                 prompt=prompt + ", perfectly unified and seamless composition",
                 image=final_image,
+                mask_image=mask,
                 strength=unification_strength,
                 num_inference_steps=40,
                 guidance_scale=7.0,

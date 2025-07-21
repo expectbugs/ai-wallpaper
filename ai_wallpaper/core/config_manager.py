@@ -338,14 +338,14 @@ class ConfigManager:
                 enabled.append(name)
         return enabled
         
-    def get_path(self, path_key: str) -> str:
+    def get_path(self, path_key: str) -> Path:
         """Get a configured path
         
         Args:
             path_key: Key in paths configuration
             
         Returns:
-            Path string
+            Path object
         """
         # Handle nested paths like 'models.flux.primary_paths'
         keys = path_key.split('.')
@@ -361,7 +361,8 @@ class ConfigManager:
         if value is None:
             raise ConfigurationError(f"Path not found in configuration: {path_key}")
             
-        return value
+        # Convert string to Path object before returning
+        return Path(value)
         
     def get_setting(self, setting_path: str, default: Any = None) -> Any:
         """Get a setting value using dot notation

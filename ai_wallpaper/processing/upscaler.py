@@ -291,9 +291,13 @@ class RealESRGANUpscaler:
                 free_vram = torch.cuda.mem_get_info()[0]
                 available_vram_gb = free_vram / (1024**3)
                 self.logger.debug(f"Available VRAM: {available_vram_gb:.1f}GB")
-            except Exception:
-                # If we can't get VRAM info, assume limited VRAM
-                available_vram_gb = 2
+            except Exception as e:
+                # FAIL LOUD - VRAM info is critical for proper tile sizing
+                raise RuntimeError(
+                    f"Failed to get VRAM information: {e}\n"
+                    f"Cannot determine optimal tile size without VRAM info!\n"
+                    f"This should not happen with properly configured CUDA."
+                )
                 
         # Determine tile size based on both image size and VRAM
         # Larger tiles are faster but use more VRAM

@@ -6,7 +6,7 @@ NO LIMITS - Just intelligent adaptation
 
 import torch
 from typing import Tuple, Dict, Any, Optional
-from ..core import get_logger
+from .logger import get_logger
 
 class VRAMCalculator:
     """Calculate VRAM requirements and determine refinement strategy"""
@@ -80,16 +80,13 @@ class VRAMCalculator:
         if not torch.cuda.is_available():
             return None
             
-        try:
-            free_bytes, total_bytes = torch.cuda.mem_get_info()
-            free_mb = free_bytes / (1024 * 1024)
-            total_mb = total_bytes / (1024 * 1024)
-            
-            self.logger.debug(f"VRAM: {free_mb:.0f}MB free / {total_mb:.0f}MB total")
-            return free_mb
-        except Exception as e:
-            self.logger.warning(f"Could not get VRAM info: {e}")
-            return None
+        # FAIL LOUD philosophy - if CUDA is available but we can't get info, that's an error
+        free_bytes, total_bytes = torch.cuda.mem_get_info()
+        free_mb = free_bytes / (1024 * 1024)
+        total_mb = total_bytes / (1024 * 1024)
+        
+        self.logger.debug(f"VRAM: {free_mb:.0f}MB free / {total_mb:.0f}MB total")
+        return free_mb
     
     def determine_refinement_strategy(self,
                                      width: int,
@@ -137,7 +134,13 @@ class VRAMCalculator:
         
         # Need tiled refinement
         # Calculate optimal tile size
-        pixels_per_mb = (1024 * 1024) / (vram_info['total_vram_mb'] / vram_info['pixels'])
+        # Simplified calculation with safety check
+        if vram_info['total_vram_mb'] > 0:
+            pixels_per_mb = vram_info['pixels'] / vram_info['total_vram_mb']
+        else:
+            # Fallback to a reasonable default if somehow total_vram_mb is 0
+            pixels_per_mb = 1024 * 1024 / 100  # Assume 100MB per megapixel as fallback
+        
         max_pixels = int((available_mb - self.MODEL_OVERHEAD_MB) * pixels_per_mb * 0.8)
         
         # Tile size (ensure divisible by 128 for SDXL)

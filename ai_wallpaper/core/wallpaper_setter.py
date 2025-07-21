@@ -64,9 +64,17 @@ class WallpaperSetter:
                     elif 'xfce4-session' in ps_output:
                         return 'xfce'
                 except subprocess.CalledProcessError as e:
-                    logger.warning(f"Failed to detect desktop environment via ps: {e}")
+                    # FAIL LOUD - desktop detection must work
+                    raise WallpaperError(
+                        f"Failed to detect desktop environment via ps command: {e}\n"
+                        f"Cannot determine how to set wallpaper without knowing desktop environment!"
+                    )
                 except Exception as e:
-                    logger.warning(f"Unexpected error detecting desktop environment: {e}")
+                    # FAIL LOUD - unexpected errors are critical
+                    raise WallpaperError(
+                        f"Critical error detecting desktop environment: {e}\n"
+                        f"This should never happen - please report this bug!"
+                    )
                     
                 return 'unknown'
                 
@@ -112,7 +120,7 @@ class WallpaperSetter:
                 return setter(image_path)
             except Exception as e:
                 primary_error = e
-                logger.warning(f"Failed with {self.desktop} method: {e}")
+                logger.error(f"FAILED with {self.desktop} method: {e}")
                 # Try generic method as fallback
                 if self.desktop != 'unknown':
                     try:

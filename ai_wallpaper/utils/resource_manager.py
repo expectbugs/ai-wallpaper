@@ -85,10 +85,8 @@ class ResourceManager:
         for name, model in list(self.allocated_models.items()):
             if name != model_name:
                 self.logger.info(f"Unloading {name} to free resources")
-                try:
-                    model.cleanup()
-                except Exception as e:
-                    self.logger.warning(f"Failed to cleanup {name}: {e}")
+                # FAIL LOUD - cleanup must succeed
+                model.cleanup()
                 del self.allocated_models[name]
                 
         # Force garbage collection

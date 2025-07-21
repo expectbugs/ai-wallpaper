@@ -124,9 +124,15 @@ class SdxlModel(BaseImageModel):
                 self.pipe.enable_xformers_memory_efficient_attention()
                 self.logger.info("xFormers enabled for memory efficiency")
             except ImportError as e:
+                # xFormers not installed is OK - just use standard attention
                 self.logger.info(f"xFormers not available: {e}. Using standard attention")
             except Exception as e:
-                self.logger.warning(f"Failed to enable xFormers: {e}. Using standard attention")
+                # FAIL LOUD - if xFormers is available but fails, that's critical
+                raise RuntimeError(
+                    f"xFormers is installed but failed to enable: {e}\n"
+                    f"This indicates a serious configuration problem!\n"
+                    f"Either fix xFormers installation or uninstall it completely."
+                )
                 
             # Load SDXL Refiner model for ensemble of expert denoisers
             self._load_refiner_model()

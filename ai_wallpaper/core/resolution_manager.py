@@ -8,6 +8,7 @@ from typing import Tuple, Dict, List, Optional
 from dataclasses import dataclass
 from pathlib import Path
 import math
+from .logger import get_logger
 
 @dataclass
 class ResolutionConfig:
@@ -65,7 +66,7 @@ class ResolutionManager:
     }
     
     def __init__(self):
-        self.logger = None  # Will be set by caller
+        self.logger = get_logger(self.__class__.__name__)
         
     def get_optimal_generation_size(self, 
                                    target_resolution: Tuple[int, int],
@@ -219,6 +220,10 @@ class ResolutionManager:
                 self.logger.info("No significant upscaling needed")
         
         return strategy
+    
+    def _get_dalle_optimal_size(self, target: ResolutionConfig) -> Tuple[int, int]:
+        """Get optimal DALLE generation size - fixed at 1024x1024"""
+        return (1024, 1024)
     
     def calculate_progressive_outpaint_strategy(self,
                                               current_size: Tuple[int, int],
