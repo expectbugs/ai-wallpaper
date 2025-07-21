@@ -8,6 +8,7 @@ from typing import Optional
 from pathlib import Path
 
 from ..core import get_logger, get_config
+from ..core.exceptions import ModelError
 from ..models.flux_model import FluxModel
 
 class ModelsCommand:
@@ -60,8 +61,12 @@ class ModelsCommand:
         try:
             model_config = self.config.get_model_config(model_name)
         except Exception as e:
-            self.logger.error(f"Model '{model_name}' not found")
-            return
+            raise ModelError(
+                f"Model not found: {model_name}!\n"
+                f"Error: {str(e)}\n"
+                f"Use 'list' command to see available models.\n"
+                f"Model must exist to proceed!"
+            )
             
         self.logger.info(f"=== {model_config.get('display_name', model_name)} ===")
         
@@ -110,8 +115,12 @@ class ModelsCommand:
         try:
             model_config = self.config.get_model_config(model_name)
         except Exception as e:
-            self.logger.error(f"Model '{model_name}' not found")
-            return
+            raise ModelError(
+                f"Model not found: {model_name}!\n"
+                f"Error: {str(e)}\n"
+                f"Use 'list' command to see available models.\n"
+                f"Model must exist to proceed!"
+            )
             
         self.logger.info(f"Checking {model_config.get('display_name', model_name)}...")
         
@@ -132,9 +141,12 @@ class ModelsCommand:
                 try:
                     model_path = model._find_model_path()
                     self.logger.info(f"✓ Model files found at: {model_path}")
-                except:
+                except FileNotFoundError:
                     self.logger.warning("✗ Model files not found locally")
                     self.logger.info("  Model will be downloaded on first use")
+                except Exception as e:
+                    self.logger.warning(f"✗ Error checking model files: {e}")
+                    self.logger.info("  Model status unknown")
                     
             else:
                 self.logger.error(f"✗ {message}")

@@ -154,12 +154,22 @@ models:
           enable_refiner: true
           refiner_switch_at: 0.8  # Base: steps 1-80, Refiner: 81-100
           
-        # Stage 2: Initial refinement pass
+        # Stage 2: Initial refinement pass - UPDATED FOR SMART QUALITY
         initial_refinement:
           enabled: true
-          denoising_strength: 0.35
-          steps: 50
+          denoising_strength: 0.08     # REDUCED from 0.15
+          steps: 100                    # INCREASED from 80
           use_refiner_model: true
+          
+          # Smart multi-pass settings
+          multi_pass_enabled: true
+          # Pass-specific settings
+          coherence_strength: 0.05      # REDUCED from 0.08
+          coherence_steps: 120          # INCREASED from 100
+          targeted_strength: 0.15       # REDUCED from 0.25
+          targeted_steps: 100           # INCREASED from 80
+          detail_strength: 0.03         # REDUCED from 0.05
+          detail_steps: 80              # INCREASED from 60
           
         # Stage 3: Progressive upscaling
         progressive_upscale:

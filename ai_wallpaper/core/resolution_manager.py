@@ -93,7 +93,7 @@ class ResolutionManager:
             return self._get_sdxl_optimal_size(target_config)
     
     def _get_sdxl_optimal_size(self, target: ResolutionConfig) -> Tuple[int, int]:
-        """Get optimal SDXL generation size"""
+        """Get optimal SDXL generation size - ALWAYS use trained dimensions"""
         # Find closest aspect ratio match
         best_match = None
         best_diff = float('inf')
@@ -107,13 +107,13 @@ class ResolutionManager:
                 best_diff = diff
                 best_match = dims
         
-        # Scale up if target is significantly larger
-        base_w, base_h = best_match
-        base_pixels = base_w * base_h
-        
-        if target.total_pixels > base_pixels * 4:
-            # Generate at 1.5x size for better quality when upscaling a lot
-            return (int(base_w * 1.5), int(base_h * 1.5))
+        # NEVER scale up from trained dimensions
+        # Quality comes from proper generation at trained resolutions, not larger generation
+        if self.logger:
+            self.logger.info(
+                f"Target: {target.width}x{target.height} (aspect {target.aspect_ratio:.2f}) -> "
+                f"Using SDXL trained size: {best_match[0]}x{best_match[1]} (aspect {best_match[0]/best_match[1]:.2f})"
+            )
         
         return best_match
     
@@ -143,58 +143,285 @@ class ResolutionManager:
     
     def calculate_upscale_strategy(self,
                                   source_size: Tuple[int, int],
-                                  target_size: Tuple[int, int]) -> List[Dict]:
+                                  target_size: Tuple[int, int],
+                                  generation_aspect: float,
+                                  target_aspect: float) -> List[Dict]:
         """
-        Calculate optimal upscaling strategy.
+        Calculate upscaling strategy WITHOUT aspect adjustment.
+        Aspect adjustment now happens in Stage 1.5 BEFORE refinement.
         
+        Args:
+            source_size: Current size after aspect adjustment
+            target_size: Final target size
+            generation_aspect: Original generation aspect (for logging)
+            target_aspect: Target aspect (for validation)
+            
         Returns:
-            List of upscaling steps to perform
+            List of upscaling steps (Real-ESRGAN and downsample only)
         """
         source_w, source_h = source_size
         target_w, target_h = target_size
         
-        scale_x = target_w / source_w
-        scale_y = target_h / source_h
-        
         strategy = []
         
-        # Strategy 1: Integer upscaling with Real-ESRGAN
-        current_w, current_h = source_w, source_h
+        # Validate aspects match (should already be adjusted)
+        current_aspect = source_w / source_h
+        if abs(current_aspect - target_aspect) > 0.05:
+            if self.logger:
+                self.logger.warning(
+                    f"Aspect mismatch in upscale strategy! "
+                    f"Current: {current_aspect:.3f}, Target: {target_aspect:.3f}. "
+                    f"Aspect adjustment should have been done in Stage 1.5!"
+                )
         
-        # Use 2x upscaling as much as possible
-        while current_w * 2 <= target_w * 1.1 and current_h * 2 <= target_h * 1.1:
-            strategy.append({
-                "method": "realesrgan",
-                "scale": 2,
-                "model": "RealESRGAN_x2plus",
-                "input_size": (current_w, current_h),
-                "output_size": (current_w * 2, current_h * 2)
-            })
-            current_w *= 2
-            current_h *= 2
+        # Calculate scale needed
+        scale_w = target_w / source_w
+        scale_h = target_h / source_h
+        scale_needed = max(scale_w, scale_h)
         
-        # Final adjustment if needed
-        if current_w != target_w or current_h != target_h:
-            if current_w >= target_w and current_h >= target_h:
-                # We overshot, crop to exact size
-                strategy.append({
-                    "method": "center_crop",
-                    "input_size": (current_w, current_h),
-                    "output_size": (target_w, target_h)
-                })
-            else:
-                # Need one more upscale + crop
+        if self.logger:
+            self.logger.info(f"Upscale strategy: {source_w}x{source_h} → {target_w}x{target_h} (scale: {scale_needed:.2f}x)")
+        
+        # Only proceed if significant upscaling is needed
+        if scale_needed > 1.1:
+            current_w, current_h = source_w, source_h
+            
+            # Progressive 2x upscaling with Real-ESRGAN
+            while current_w < target_w or current_h < target_h:
                 strategy.append({
                     "method": "realesrgan",
                     "scale": 2,
                     "model": "RealESRGAN_x2plus",
                     "input_size": (current_w, current_h),
-                    "output_size": (current_w * 2, current_h * 2)
+                    "output_size": (current_w * 2, current_h * 2),
+                    "description": f"2x upscale to {current_w * 2}x{current_h * 2}"
                 })
+                current_w *= 2
+                current_h *= 2
+                
+                # Safety check
+                if len(strategy) > 5:
+                    raise RuntimeError(
+                        f"Too many upscale steps needed! "
+                        f"Source: {source_size}, Target: {target_size}"
+                    )
+            
+            # Final downsample if we overshot
+            if current_w > target_w or current_h > target_h:
                 strategy.append({
-                    "method": "center_crop",
-                    "input_size": (current_w * 2, current_h * 2),
-                    "output_size": (target_w, target_h)
+                    "method": "lanczos_downsample",
+                    "input_size": (current_w, current_h),
+                    "output_size": (target_w, target_h),
+                    "description": f"High-quality downsample to exact {target_w}x{target_h}"
                 })
+        else:
+            if self.logger:
+                self.logger.info("No significant upscaling needed")
         
         return strategy
+    
+    def calculate_progressive_outpaint_strategy(self,
+                                              current_size: Tuple[int, int],
+                                              target_aspect: float,
+                                              max_expansion_per_step: float = 2.0) -> List[Dict]:
+        """
+        Calculate progressive outpainting steps for extreme aspect ratios.
+        COMPLETE IMPLEMENTATION with validation and error handling.
+        
+        Args:
+            current_size: Current image dimensions (width, height)
+            target_aspect: Target aspect ratio (width/height)
+            max_expansion_per_step: Maximum expansion ratio per step
+            
+        Returns:
+            List of progressive outpaint steps
+            
+        Raises:
+            ValueError: If inputs are invalid
+            RuntimeError: If strategy cannot be calculated
+        """
+        # Input validation
+        if not current_size or len(current_size) != 2:
+            raise ValueError(f"Invalid current_size: {current_size}")
+        
+        current_w, current_h = current_size
+        
+        if current_w <= 0 or current_h <= 0:
+            raise ValueError(f"Invalid dimensions: {current_w}x{current_h}")
+        
+        if target_aspect <= 0:
+            raise ValueError(f"Invalid target_aspect: {target_aspect}")
+        
+        current_aspect = current_w / current_h
+        
+        # If aspect change is minimal, return empty strategy
+        if abs(current_aspect - target_aspect) < 0.05:
+            if self.logger:
+                self.logger.info(f"Aspect change minimal ({current_aspect:.3f} → {target_aspect:.3f}), no adjustment needed")
+            return []
+        
+        # Check if expansion is too extreme
+        aspect_change_ratio = max(target_aspect / current_aspect, current_aspect / target_aspect)
+        if aspect_change_ratio > 8.0:
+            raise ValueError(
+                f"Aspect ratio change {aspect_change_ratio:.1f}x exceeds maximum supported ratio of 8.0x. "
+                f"Current: {current_aspect:.3f}, Target: {target_aspect:.3f}"
+            )
+        
+        steps = []
+        
+        # Determine expansion direction
+        if target_aspect > current_aspect:
+            # Expanding width
+            target_w = int(current_h * target_aspect)
+            target_h = current_h
+            direction = "horizontal"
+            
+            if self.logger:
+                self.logger.info(f"Planning horizontal expansion: {current_w}x{current_h} → {target_w}x{target_h}")
+            
+            # Calculate total expansion needed
+            total_expansion = target_w / current_w
+            
+            # Progressive expansion logic
+            temp_w = current_w
+            temp_h = current_h
+            
+            # First step: Can be larger (2x) when we have maximum context
+            if total_expansion >= 2.0:
+                next_w = min(int(temp_w * 2.0), target_w)
+                steps.append({
+                    "method": "outpaint",
+                    "current_size": (temp_w, temp_h),
+                    "target_size": (next_w, temp_h),
+                    "expansion_ratio": next_w / temp_w,
+                    "direction": direction,
+                    "step_type": "initial",
+                    "description": f"Initial 2x expansion: {temp_w}x{temp_h} → {next_w}x{temp_h}"
+                })
+                temp_w = next_w
+            
+            # Middle steps: 1.5x for balanced expansion
+            step_num = 2
+            while temp_w < target_w * 0.95:  # 95% to avoid tiny final steps
+                if temp_w * 1.5 <= target_w:
+                    next_w = int(temp_w * 1.5)
+                else:
+                    next_w = target_w
+                    
+                steps.append({
+                    "method": "outpaint",
+                    "current_size": (temp_w, temp_h),
+                    "target_size": (next_w, temp_h),
+                    "expansion_ratio": next_w / temp_w,
+                    "direction": direction,
+                    "step_type": "progressive",
+                    "description": f"Step {step_num}: {temp_w}x{temp_h} → {next_w}x{temp_h}"
+                })
+                temp_w = next_w
+                step_num += 1
+                
+                # Safety check
+                if step_num > 10:
+                    raise RuntimeError(f"Too many expansion steps ({step_num}), something is wrong")
+            
+            # Final adjustment if needed
+            if temp_w < target_w:
+                steps.append({
+                    "method": "outpaint",
+                    "current_size": (temp_w, temp_h),
+                    "target_size": (target_w, temp_h),
+                    "expansion_ratio": target_w / temp_w,
+                    "direction": direction,
+                    "step_type": "final",
+                    "description": f"Final adjustment: {temp_w}x{temp_h} → {target_w}x{temp_h}"
+                })
+        
+        else:
+            # Expanding height (similar logic)
+            target_w = current_w
+            target_h = int(current_w / target_aspect)
+            direction = "vertical"
+            
+            if self.logger:
+                self.logger.info(f"Planning vertical expansion: {current_w}x{current_h} → {target_w}x{target_h}")
+            
+            # Calculate total expansion needed
+            total_expansion = target_h / current_h
+            
+            # Progressive expansion logic for height
+            temp_w = current_w
+            temp_h = current_h
+            
+            # First step: Can be larger (2x) when we have maximum context
+            if total_expansion >= 2.0:
+                next_h = min(int(temp_h * 2.0), target_h)
+                steps.append({
+                    "method": "outpaint",
+                    "current_size": (temp_w, temp_h),
+                    "target_size": (temp_w, next_h),
+                    "expansion_ratio": next_h / temp_h,
+                    "direction": direction,
+                    "step_type": "initial",
+                    "description": f"Initial 2x expansion: {temp_w}x{temp_h} → {temp_w}x{next_h}"
+                })
+                temp_h = next_h
+            
+            # Middle steps: 1.5x for balanced expansion
+            step_num = 2
+            while temp_h < target_h * 0.95:  # 95% to avoid tiny final steps
+                if temp_h * 1.5 <= target_h:
+                    next_h = int(temp_h * 1.5)
+                else:
+                    next_h = target_h
+                    
+                steps.append({
+                    "method": "outpaint",
+                    "current_size": (temp_w, temp_h),
+                    "target_size": (temp_w, next_h),
+                    "expansion_ratio": next_h / temp_h,
+                    "direction": direction,
+                    "step_type": "progressive",
+                    "description": f"Step {step_num}: {temp_w}x{temp_h} → {temp_w}x{next_h}"
+                })
+                temp_h = next_h
+                step_num += 1
+                
+                # Safety check
+                if step_num > 10:
+                    raise RuntimeError(f"Too many expansion steps ({step_num}), something is wrong")
+            
+            # Final adjustment if needed
+            if temp_h < target_h:
+                steps.append({
+                    "method": "outpaint",
+                    "current_size": (temp_w, temp_h),
+                    "target_size": (temp_w, target_h),
+                    "expansion_ratio": target_h / temp_h,
+                    "direction": direction,
+                    "step_type": "final",
+                    "description": f"Final adjustment: {temp_w}x{temp_h} → {temp_w}x{target_h}"
+                })
+            
+        if self.logger:
+            self.logger.info(f"Progressive strategy: {len(steps)} steps planned")
+            for i, step in enumerate(steps):
+                self.logger.debug(f"  {i+1}. {step['description']}")
+        
+        return steps
+    
+    def should_use_progressive_outpainting(self, aspect_change_ratio: float) -> bool:
+        """
+        Determine if progressive outpainting should be used.
+        
+        Args:
+            aspect_change_ratio: Max ratio between source and target aspects
+            
+        Returns:
+            True if progressive outpainting should be used
+        """
+        # For now, hardcode the threshold as we don't have config yet
+        # This will be updated when we implement the new resolution.yaml
+        single_step_max = 2.5
+        
+        return aspect_change_ratio > single_step_max

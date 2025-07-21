@@ -180,7 +180,71 @@ class APIError(AIWallpaperError):
             "Suggestion": "Check API key and endpoint configuration"
         }
         super().__init__(f"{api_name} API call failed", details)
+
+
+class VRAMError(AIWallpaperError):
+    """Raised when VRAM operations fail"""
+    def __init__(self, operation: str, required_mb: float, available_mb: float, message: str = None):
+        self.operation = operation
+        self.required_mb = required_mb
+        self.available_mb = available_mb
         
+        if message is None:
+            message = (
+                f"Insufficient VRAM for requested operation!\n"
+                f"Operation: {operation}\n"
+                f"Required: {required_mb:.0f}MB\n"
+                f"Available: {available_mb:.0f}MB\n"
+                f"This hardware cannot handle the requested quality level.\n"
+                f"Upgrade your GPU or reduce resolution requirements."
+            )
+        
+        super().__init__(message)
+
+
+class LoggingError(AIWallpaperError):
+    """Raised when logging setup or operations fail"""
+    
+    def __init__(self, operation: str, error: str, resolution: str = ""):
+        message = (
+            f"❌ LOGGING FAILURE: {operation}\n"
+            f"Error: {error}"
+        )
+        if resolution:
+            message += f"\nResolution: {resolution}"
+        
+        super().__init__(message)
+
+
+class PathError(AIWallpaperError):
+    """Raised when path operations fail"""
+    
+    def __init__(self, operation: str, path: str = "", error: str = "", resolution: str = ""):
+        message = f"❌ PATH ERROR: {operation}"
+        if path:
+            message += f"\nPath: {path}"
+        if error:
+            message += f"\nError: {error}"
+        if resolution:
+            message += f"\nResolution: {resolution}"
+        
+        super().__init__(message)
+
+
+class FileManagerError(AIWallpaperError):
+    """Raised when file management operations fail"""
+    
+    def __init__(self, operation: str, path: str = "", error: str = "", impact: str = ""):
+        message = f"❌ FILE MANAGER ERROR: {operation}"
+        if path:
+            message += f"\nPath: {path}"
+        if error:
+            message += f"\nError: {error}"
+        if impact:
+            message += f"\nImpact: {impact}"
+        
+        super().__init__(message)
+
 
 def handle_error(error: Exception, context: str = "") -> None:
     """Handle an error according to fail-loud philosophy

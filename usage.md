@@ -1,185 +1,128 @@
-# AI Wallpaper Generator - Comprehensive Usage Overview
+# AI Wallpaper Generator - Usage Guide
 
-Based on my thorough analysis of your AI wallpaper project, here's a complete overview of all the ways you can use it, including every setting, option, and configuration available.
+Ultra-high-quality wallpaper generation at any resolution using AI models with weather integration.
 
-## 🚀 Main CLI Commands
+## 🚀 Quick Start
 
-### 1. **Generate Command** - Core Wallpaper Creation
+```bash
+# Generate with default settings (FLUX, 4K, random theme)
+./ai-wallpaper generate
+
+# Generate at specific resolution
+./ai-wallpaper generate --resolution 8K
+
+# Use different model
+./ai-wallpaper generate --model sdxl --resolution ultrawide_4K
+```
+
+## 📋 Generate Command - All Options
 
 ```bash
 ./ai-wallpaper generate [OPTIONS]
 ```
 
-**All Generate Options:**
+### Core Options
+- `--model [flux|dalle3|gpt-image-1|sdxl]` - Force specific model
 - `--prompt TEXT` - Custom prompt (bypasses theme system)
 - `--theme TEXT` - Force specific theme from themes.yaml
-- `--model [flux|dalle3|gpt-image-1|sdxl]` - Force specific model
+- `--seed INTEGER` - Seed for reproducible generation
+
+### Resolution Control
+- `--resolution TEXT` - Target resolution as WIDTHxHEIGHT or preset name
+  - **Presets**: `1080p`, `1440p`, `4K`, `5K`, `8K`, `ultrawide_4K`, `ultrawide_1440p`, `portrait_4K`, `square_4K`
+  - **Custom**: `3840x2160`, `5760x1080`, `2160x3840`, etc.
+  - **NO LIMITS**: System can handle ANY resolution (16K+, extreme ultrawide, etc.)
+  - **Extreme Examples**: `5140x600`, `7680x1080`, `15360x8640`
+
+### Quality Settings
+- `--quality-mode [fast|balanced|ultimate]` - Quality mode (default: balanced)
+- `--no-tiled-refinement` - Disable tiled refinement pass
+- `--no-upscale` - Skip upscaling stage (generate at base resolution only)
+
+### Generation Behavior
 - `--random-model` - Use weighted random model selection
 - `--random-params` - Randomize valid parameters within ranges
-- `--seed INTEGER` - Seed for reproducible generation
-- `--no-upscale` - Skip upscaling stage (generate base resolution only)
 - `--no-wallpaper` - Generate only, don't set as desktop wallpaper
 - `--save-stages` - Save intermediate stage images
 - `--output PATH` - Custom output path
 
-**Global Options (work with any command):**
+### Global Options
 - `--config PATH` - Custom config directory
 - `--verbose` - Enable verbose output
 - `--dry-run` - Show execution plan without running
 
-### 2. **Test Command** - System Verification
+## 🎯 Models & Capabilities
 
-```bash
-./ai-wallpaper test [OPTIONS]
-```
+### FLUX.1-dev (Default, Best Quality)
+- **Resolution**: Any resolution with 1MP optimal generation
+- **Time**: 5-15 minutes depending on target resolution
+- **Requirements**: 24GB VRAM, Real-ESRGAN
 
-**Test Options:**
-- `--model [flux|dalle3|gpt-image-1|sdxl]` - Test specific model
-- `--component [prompt|image|wallpaper|theme]` - Test specific component
-- `--quick` - Fast test mode (environment validation only)
-
-### 3. **Config Command** - Configuration Management
-
-```bash
-./ai-wallpaper config [OPTIONS]
-```
-
-**Config Options:**
-- `--show` - Display current configuration
-- `--validate` - Validate all config files
-- `--set KEY=VALUE` - Set configuration value (not yet implemented)
-- `--reset` - Reset to defaults (not yet implemented)
-
-### 4. **Models Command** - Model Management
-
-```bash
-./ai-wallpaper models [OPTIONS]
-```
-
-**Model Options:**
-- `--list` - List available models with status
-- `--info MODEL_NAME` - Show detailed info for specific model
-- `--check MODEL_NAME` - Check if model is ready to use
-- `--install MODEL_NAME` - Download/install specific model (not yet implemented)
-
-## 🎯 Model Configurations & Pipelines
-
-### **FLUX.1-dev** (Default, Best Quality)
-- **Resolution Pipeline**: 1920x1088 → Real-ESRGAN 8K → Lanczos 4K
-- **Quality Settings**: 100 steps, bfloat16, guidance 3.5
-- **Requirements**: 24GB VRAM (RTX 3090), Real-ESRGAN
-- **Generation Time**: ~11 minutes
-- **Configurable Parameters**:
-  - `steps_range: [50, 100]` - For random parameter selection
-  - `guidance_range: [2.0, 4.0]` - Guidance scale randomization
-  - `torch_dtype: bfloat16` - Precision setting
-  - `scheduler: FlowMatchEulerDiscreteScheduler` - Required for FLUX
-
-### **DALL-E 3** (Fastest, API-based)
-- **Resolution Pipeline**: 1792x1024 → crop to 16:9 → Real-ESRGAN 4x → 4K
-- **Quality Settings**: HD quality, vivid style
-- **Requirements**: OpenAI API key
-- **Generation Time**: ~2 minutes
-- **Configurable Parameters**:
-  - `quality: "hd"` - Image quality setting
-  - `style: "vivid"` - Style preference
-  - `timeout: 60` - API timeout
-
-### **GPT-Image-1** (Latest OpenAI Model)
-- **Two Variants**:
-  - Direct API: Direct GPT-Image-1 generation
-  - Responses API: GPT-4o → GPT-Image-1 workflow
-- **Resolution Pipeline**: 1536x1024 → crop → upscale → 4K
-- **Requirements**: OpenAI API key
-- **Generation Time**: ~3 minutes
-
-### **SDXL + LoRA** (AI Art Focus)
-- **Resolution Pipeline**: 1920x1024 → optional img2img → Real-ESRGAN 2x → 4K
-- **LoRA System**: 8 LoRAs with automatic theme-based selection
-  - **General LoRAs**: photorealistic slider, extremely detailed, face helper (apply to all themes)
-  - **Theme-Specific**: anime slider, cyberpunk style, 70s sci-fi, fantasy slider
-  - **Multi-LoRA**: Up to 5 simultaneous LoRAs, 4.0 total weight limit
+### SDXL + LoRA (AI Art Focus)
+- **Resolution**: SDXL optimal dimensions (1024-1536px) with intelligent upscaling
+- **LoRA System**: 8 LoRAs with theme-based auto-selection
+- **Time**: 8-20 minutes depending on resolution and quality mode
 - **Requirements**: 16GB VRAM
-- **Generation Time**: ~8 minutes
-- **Configurable Parameters**:
-  - `scheduler_options`: Multiple scheduler choices for randomization
-  - `steps_range: [30, 75]`
-  - `guidance_range: [5.0, 12.0]`
-  - Individual LoRA weight ranges and trigger words
-  - Theme-to-LoRA mapping system
 
-## ⚙️ Configuration Files Deep Dive
+### DALL-E 3 (Fastest, API-based)
+- **Resolution**: Any resolution with intelligent cropping
+- **Time**: 2-5 minutes depending on target resolution
+- **Requirements**: OpenAI API key
 
-### **models.yaml** - Model & Pipeline Settings
-- **Model Definitions**: All 4 models with complete configuration
-- **Pipeline Settings**: 3-stage quality pipelines for each model
-- **Random Selection**: Weighted model selection (flux: 35, dalle3: 25, gpt_image_1: 25, sdxl: 15)
-- **Quality Settings**: Always maximum (jpeg_quality: 100, png_compression: 0)
-- **LoRA Configuration**: 8 SDXL LoRAs with theme mapping and weight optimization
-- **API Configuration**: Environment variable expansion for keys
+### GPT-Image-1 (Latest OpenAI)
+- **Resolution**: Flexible resolution with intelligent processing
+- **Time**: 3-6 minutes depending on target resolution
+- **Requirements**: OpenAI API key
 
-### **settings.yaml** - Application Behavior
-- **Wallpaper Settings**: 
-  - `auto_set_wallpaper: true/false`
-  - Desktop environment auto-detection and commands
-  - Support for: XFCE, GNOME, KDE, MATE, Cinnamon, LXDE, LXQT, i3, Sway, Hyprland, macOS, Windows
-- **Output Settings**:
-  - `final_resolution: [3840, 2160]` - 4K output
-  - `format: "png"` - File format
-  - `save_stages: false` - Intermediate stage saving
-  - Archive settings with automatic cleanup
-- **Performance Settings**:
-  - GPU memory management (`memory_fraction: 0.95`)
-  - CPU thread control
-  - Aggressive cleanup options
-- **Logging Configuration**: Full logging control with file rotation
+## 📖 Usage Examples
 
-### **paths.yaml** - File System Locations
-- **Directory Paths**: All directories with absolute paths
-- **Model Paths**: Priority-ordered model file locations
-- **Cache Directories**: Weather cache, general cache
-- **Output Paths**: Default and custom output locations
-
-### **system.yaml** - System Integration
-- **Python Environment**: Virtual environment path configuration
-- **Ollama Integration**: Ollama executable path
-- **Weather Configuration**: GPS coordinates for weather API
-- **Generation Settings**: Seed display, prompt history management
-
-### **themes.yaml** - Theme Database (100+ Themes)
-- **10 Theme Categories** with weights:
-  - LOCAL_MEDIA (30% weight): Star Trek, Marvel, Doctor Who, Final Fantasy, etc.
-  - GENRE_FUSION (25%): Cross-universe mashups
-  - ATMOSPHERIC (20%): Weather-enhanced themes
-  - SPACE_COSMIC (12%): Cosmic horror and space phenomena
-  - ARCHITECTURAL (10%): Impossible architecture
-  - ANIME_MANGA (15%): Anime-inspired themes
-  - TEMPORAL (15%): Time period fusions
-  - ABSTRACT_CHAOS (12%): Surreal combinations
-  - EXPERIMENTAL (10%): Pure chaos mode
-  - DIGITAL_PROGRAMMING (10%): Tech and code themes
-
-### **weather.yaml** - Weather Integration
-- **Location Settings**: GPS coordinates for weather data
-- **API Configuration**: National Weather Service API setup
-- **Weather Mapping**: Conditions to artistic moods
-- **Cache Settings**: Weather data caching with expiration times
-
-## 🔄 Usage Workflows
-
-### **Basic Generation**
+### Basic Generation
 ```bash
-# Default generation (FLUX model, random theme)
+# Default 4K generation
 ./ai-wallpaper generate
 
-# Quick generation with DALL-E 3
-./ai-wallpaper generate --model dalle3
+# Specific model and theme
+./ai-wallpaper generate --model sdxl --theme "cyberpunk cityscape"
 
-# Custom prompt
-./ai-wallpaper generate --prompt "A serene mountain landscape at golden hour"
+# Custom prompt at 8K
+./ai-wallpaper generate --prompt "Mountain landscape at sunrise" --resolution 8K
 ```
 
-### **Advanced Generation**
+### Resolution Examples
+```bash
+# Standard resolutions
+./ai-wallpaper generate --resolution 1080p
+./ai-wallpaper generate --resolution 4K
+./ai-wallpaper generate --resolution 8K
+
+# Ultrawide monitors
+./ai-wallpaper generate --resolution ultrawide_4K
+./ai-wallpaper generate --resolution 5760x1080
+
+# Portrait orientation
+./ai-wallpaper generate --resolution portrait_4K
+./ai-wallpaper generate --resolution 2160x3840
+
+# Custom resolutions
+./ai-wallpaper generate --resolution 3440x1440
+```
+
+### Quality Control
+```bash
+# Ultimate quality (slowest, best results)
+./ai-wallpaper generate --quality-mode ultimate
+
+# Fast mode (no tiled refinement)
+./ai-wallpaper generate --quality-mode fast
+
+# Skip upscaling entirely
+./ai-wallpaper generate --no-upscale
+
+# Generate without setting wallpaper
+./ai-wallpaper generate --no-wallpaper
+```
+
+### Advanced Options
 ```bash
 # Random model with random parameters
 ./ai-wallpaper generate --random-model --random-params
@@ -190,43 +133,46 @@ Based on my thorough analysis of your AI wallpaper project, here's a complete ov
 # Save all intermediate stages
 ./ai-wallpaper generate --save-stages --output /custom/path/
 
-# Generate without setting wallpaper
-./ai-wallpaper generate --no-wallpaper --model sdxl
+# Verbose output with dry run
+./ai-wallpaper --verbose --dry-run generate --model sdxl
 ```
 
-### **Development & Testing**
+## 🔧 Other Commands
+
+### Test System
 ```bash
-# Test everything
-./ai-wallpaper test
-
-# Test specific model quickly
-./ai-wallpaper test --model flux --quick
-
-# Test individual components
-./ai-wallpaper test --component prompt
-./ai-wallpaper test --component wallpaper
-
-# Dry run to see execution plan
-./ai-wallpaper --dry-run generate --random-model
+./ai-wallpaper test                           # Test everything
+./ai-wallpaper test --model flux --quick      # Quick model test
+./ai-wallpaper test --component prompt        # Test specific component
 ```
 
-### **Configuration Management**
+### Configuration
 ```bash
-# View current configuration
-./ai-wallpaper config --show
-
-# Verbose configuration dump
-./ai-wallpaper --verbose config --show
-
-# Validate configuration files
-./ai-wallpaper config --validate
-
-# Check model status
-./ai-wallpaper models --check flux
-./ai-wallpaper models --info dalle3
+./ai-wallpaper config --show                  # View current config
+./ai-wallpaper config --validate              # Validate config files
 ```
 
-### **Automated Scheduling**
+### Model Management
+```bash
+./ai-wallpaper models --list                  # List available models
+./ai-wallpaper models --info sdxl             # Show model details
+./ai-wallpaper models --check flux            # Check model readiness
+```
+
+## ⚙️ Configuration Files
+
+Located in `ai_wallpaper/config/`:
+
+- **`models.yaml`** - Model settings and pipeline configurations
+- **`resolution.yaml`** - Resolution presets, quality modes, tiled refinement
+- **`system.yaml`** - Python venv, weather coordinates, paths
+- **`themes.yaml`** - Theme categories and definitions (60+ themes)
+- **`weather.yaml`** - Weather API settings
+- **`paths.yaml`** - Directory paths
+- **`settings.yaml`** - Desktop environment settings
+
+## 🔄 Automated Scheduling
+
 ```bash
 # Set up daily generation at 6 AM
 ./setup_cron.sh
@@ -234,91 +180,54 @@ Based on my thorough analysis of your AI wallpaper project, here's a complete ov
 # Manual cron setup
 crontab -e
 # Add: 0 6 * * * /home/user/ai-wallpaper/run_ai_wallpaper.sh
-
-# Run manually with logging
-./run_ai_wallpaper.sh
 ```
 
-## 🛠️ Customization Options
+## 🎨 Theme System
 
-### **Model Behavior Customization**
-- **FLUX**: Adjust steps (50-100), guidance (2.0-4.0), memory optimizations
-- **DALL-E**: Quality settings, style preferences, timeout values
-- **SDXL**: Scheduler selection, 8 LoRAs with theme-based auto-selection, individual LoRA weight ranges, img2img refinement
-- **All Models**: Custom prompt requirements, pipeline modifications
+60+ curated themes across 10 categories:
+- **LOCAL_MEDIA** (30%): Star Trek, Marvel, Doctor Who, Final Fantasy
+- **GENRE_FUSION** (25%): Cross-universe mashups
+- **ATMOSPHERIC** (20%): Weather-enhanced themes
+- **SPACE_COSMIC** (12%): Cosmic horror and space phenomena
+- **And 6 more categories** with hundreds of theme variations
 
-### **Theme System Customization**
-- **Category Weights**: Adjust probability of theme categories
-- **Individual Theme Weights**: Fine-tune specific theme selection
-- **Weather Integration**: Customize weather-to-mood mappings
-- **Custom Themes**: Add new themes with elements, styles, colors
+## 🚨 Troubleshooting
 
-### **Output Customization**
-- **Quality Settings**: JPEG/PNG compression levels
-- **Resolution**: Final output resolution (default 4K)
-- **File Naming**: Timestamp and model-based naming patterns
-- **Archive Management**: Automatic cleanup by age and size
-
-### **Desktop Integration**
-- **Multi-Environment Support**: Custom commands for any desktop environment
-- **Multi-Monitor Support**: XFCE specialized multi-monitor handling
-- **Wallpaper Verification**: Automatic verification of wallpaper setting
-
-## 📊 Advanced Features
-
-### **Random Parameter System**
-When using `--random-params`:
-- **Steps**: Randomized within model's `steps_range`
-- **Guidance**: Randomized within model's `guidance_range`
-- **Scheduler**: Random selection from `scheduler_options`
-- **LoRA Weights**: Randomized within LoRA's `weight_range`
-
-### **Weather Integration**
-- **Real-time Weather**: NWS API integration with your GPS coordinates
-- **Mood Mapping**: Weather conditions influence artistic themes
-- **Cache System**: Intelligent caching with configurable expiration
-- **Context Integration**: Weather data fed to prompt generation
-
-### **Quality Pipeline System**
-- **3-Stage Processing**: Generate → Upscale → Downsample for maximum quality
-- **Real-ESRGAN Integration**: AI upscaling with configurable tile sizes
-- **Memory Management**: Automatic VRAM management and cleanup
-- **Stage Saving**: Optional intermediate stage preservation
-
-### **Logging & Monitoring**
-- **Comprehensive Logging**: VRAM usage, performance metrics, errors
-- **Fail-Loud Philosophy**: Verbose error reporting, no silent failures
-- **Daily Log Rotation**: Automatic log management
-- **Cron Integration**: Specialized cron logging and error handling
-
-## 🚨 Error Handling & Debugging
-
-### **Verbose Mode**
 ```bash
-./ai-wallpaper --verbose generate --model flux
-```
-Provides detailed output including:
-- VRAM usage monitoring
-- Model loading progress
-- Pipeline stage execution
-- Configuration validation results
+# Verbose mode for debugging
+./ai-wallpaper --verbose generate
 
-### **Test Framework**
-```bash
-# Complete system test
-./ai-wallpaper test --verbose
+# Test specific model
+./ai-wallpaper test --model sdxl
 
-# Quick environment validation
-./ai-wallpaper test --quick --model flux
-```
-
-### **Configuration Validation**
-```bash
-# Validate all YAML files
+# Validate configuration
 ./ai-wallpaper config --validate
 
-# Check specific model readiness
-./ai-wallpaper models --check flux
+# Check environment
+./ai-wallpaper test --quick
 ```
 
-This system is incredibly comprehensive and flexible - you can use it for everything from simple daily wallpaper generation to complex automated workflows with custom themes, models, and quality settings. Every aspect is configurable through the YAML files, and the CLI provides full control over generation parameters.
+## 📊 Quality Modes
+
+- **Fast**: Basic generation, no tiled refinement (~5-8 minutes)
+- **Balanced**: Standard quality with moderate refinement (~8-15 minutes)  
+- **Ultimate**: Maximum quality with full tiled refinement (~15-25 minutes)
+
+Time varies by model and target resolution. Higher resolutions take longer but produce superior results.
+
+## 🚀 Advanced Features (v4.5.0+)
+
+### Extreme Resolution Support
+- **NO SIZE LIMITS**: Generate at ANY resolution without restrictions
+- **Progressive Outpainting**: Seamlessly expands to extreme aspect ratios (up to 8x)
+- **VRAM Management**: Automatic strategy selection:
+  - Full refinement for images that fit in VRAM
+  - Tiled refinement with adaptive tile sizing
+  - CPU offload for 16K+ resolutions
+- **Seamless Expansion**: No visible seams even at extreme ratios like 5140x600
+
+### Quality Enhancements
+- **Consistent Denoising**: All stages use full 80-step generation
+- **Adaptive Refinement**: Stronger refinement after extreme aspect adjustments
+- **Smart Blur Scaling**: Transition zones scale with expansion size (25% of new content)
+- **Pipeline Optimization**: Generate → Aspect Adjust → Refine → Upscale order prevents seams

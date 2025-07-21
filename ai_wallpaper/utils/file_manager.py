@@ -13,7 +13,7 @@ from datetime import datetime
 import re
 
 from ..core import get_logger, get_config
-from ..core.exceptions import ConfigurationError
+from ..core.exceptions import FileManagerError, ConfigurationError
 
 
 class FileManager:
@@ -152,7 +152,9 @@ class FileManager:
         
         # Save image
         if format.upper() == "PNG":
-            image.save(path, format, optimize=False)
+            # Use lossless save for PNG
+            from .lossless_save import save_lossless_png
+            save_lossless_png(image, path)
         else:
             image.save(path, format, quality=quality)
             
@@ -211,9 +213,27 @@ class FileManager:
         try:
             with open(metadata_path, 'r') as f:
                 return json.load(f)
+        except FileNotFoundError:
+            raise FileManagerError(
+                "Metadata file not found",
+                str(metadata_path),
+                "File does not exist",
+                "Metadata is required for pipeline tracking"
+            )
+        except json.JSONDecodeError as e:
+            raise FileManagerError(
+                "Invalid metadata JSON",
+                str(metadata_path),
+                f"JSON decode error: {e}",
+                "Metadata must be valid JSON for pipeline state tracking"
+            )
         except Exception as e:
-            self.logger.warning(f"Failed to load metadata: {e}")
-            return None
+            raise FileManagerError(
+                "Failed to load metadata",
+                str(metadata_path),
+                str(e),
+                "Metadata is critical for pipeline tracking!"
+            )
             
     def calculate_checksum(self, file_path: Path) -> str:
         """Calculate SHA256 checksum of file
@@ -301,8 +321,20 @@ class FileManager:
                 try:
                     file_path.unlink()
                     self.logger.debug(f"Deleted: {file_path}")
+                except OSError as e:
+                    raise FileManagerError(
+                        "Failed to delete file",
+                        str(file_path),
+                        f"OS error: {e}",
+                        "File cleanup must succeed - disk space matters!"
+                    )
                 except Exception as e:
-                    self.logger.warning(f"Failed to delete {file_path}: {e}")
+                    raise FileManagerError(
+                        "Unexpected error deleting file",
+                        str(file_path),
+                        str(e),
+                        "File cleanup is critical for disk space management"
+                    )
                     
         return old_files
         
@@ -350,12 +382,21 @@ class FileManager:
         metadata = self.load_metadata(file_path)
         
         if not metadata or 'file_info' not in metadata:
-            self.logger.warning(f"No metadata for integrity check: {file_path}")
-            return True  # Assume OK if no metadata
+            raise FileManagerError(
+                "No metadata for integrity check",
+                str(file_path),
+                "Metadata missing or incomplete",
+                "Metadata is required for quality assurance!"
+            )
             
         stored_checksum = metadata['file_info'].get('checksum')
         if not stored_checksum:
-            return True
+            raise FileManagerError(
+                "No checksum in metadata",
+                str(file_path),
+                "Checksum field missing from metadata",
+                "Checksum is required for integrity verification!"
+            )
             
         current_checksum = self.calculate_checksum(file_path)
         

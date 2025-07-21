@@ -3,7 +3,7 @@ AI Wallpaper Generator Package
 Ultra-high-quality 4K wallpaper generation using AI models
 """
 
-__version__ = '3.0.0'
+__version__ = '4.5.3'
 __author__ = 'AI Wallpaper Team'
 
 # Import main components for easier access

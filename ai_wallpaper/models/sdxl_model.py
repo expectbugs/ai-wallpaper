@@ -28,11 +28,15 @@ from diffusers import (
 from PIL import Image
 
 from .base_model import BaseImageModel
+from ..utils import save_lossless_png
 from ..core import get_logger, get_config
 from ..core.exceptions import ModelNotFoundError, ModelLoadError, GenerationError, UpscalerError
 from ..core.path_resolver import get_resolver
 from .model_resolver import get_model_resolver
 from ..utils import get_resource_manager
+from ..processing.downsampler import HighQualityDownsampler
+from ..processing.aspect_adjuster import AspectAdjuster
+from ..processing.smart_refiner import SmartQualityRefiner
 
 class SdxlModel(BaseImageModel):
     """SDXL implementation with LoRA support and 2x upscaling"""
@@ -49,6 +53,7 @@ class SdxlModel(BaseImageModel):
         self.loaded_loras = {}
         self.available_loras = self._scan_available_loras()
         self.resource_manager = get_resource_manager()
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         
     def initialize(self) -> bool:
         """Initialize SDXL model and verify requirements
@@ -108,7 +113,7 @@ class SdxlModel(BaseImageModel):
                     )
             
             # Move to GPU
-            self.pipe = self.pipe.to("cuda")
+            self.pipe = self.pipe.to(self.device)
             
             # Enable memory optimizations
             self.pipe.enable_vae_slicing()
@@ -118,8 +123,10 @@ class SdxlModel(BaseImageModel):
             try:
                 self.pipe.enable_xformers_memory_efficient_attention()
                 self.logger.info("xFormers enabled for memory efficiency")
-            except:
-                self.logger.info("xFormers not available, using standard attention")
+            except ImportError as e:
+                self.logger.info(f"xFormers not available: {e}. Using standard attention")
+            except Exception as e:
+                self.logger.warning(f"Failed to enable xFormers: {e}. Using standard attention")
                 
             # Load SDXL Refiner model for ensemble of expert denoisers
             self._load_refiner_model()
@@ -144,15 +151,14 @@ class SdxlModel(BaseImageModel):
             raise ModelLoadError(self.name, e)
             
     def generate(self, prompt: str, seed: Optional[int] = None, **kwargs) -> Dict[str, Any]:
-        """Generate image using SDXL pipeline
-        
-        Args:
-            prompt: Text prompt
-            seed: Random seed
-            **kwargs: Additional parameters
-            
-        Returns:
-            Generation results dictionary
+        """
+        Generate image with new pipeline order:
+        1. Generate at optimal size
+        1.5. Progressive aspect adjustment (NEW!)
+        2. Refine entire image
+        2.5. Tiled ultra-refinement (optional)
+        3. Upscale resolution only
+        4. Final adjustments
         """
         self.ensure_initialized()
         
@@ -161,6 +167,8 @@ class SdxlModel(BaseImageModel):
         
         # Get generation parameters
         params = self.get_generation_params(**kwargs)
+        params['prompt'] = prompt
+        params['seed'] = seed
         
         # Check disk space before starting generation
         self.check_disk_space_for_generation(no_upscale=params.get('no_upscale', False))
@@ -171,6 +179,14 @@ class SdxlModel(BaseImageModel):
             
         # Log generation start
         self.log_generation_start(prompt, {**params, 'seed': seed})
+        
+        # Initialize generation metadata for artifact tracking
+        self.generation_metadata = {
+            'progressive_boundaries': [],  # X positions where expansions happened
+            'tile_boundaries': [],         # (x,y) positions of tiles  
+            'used_progressive': False,     # Flag if progressive was used
+            'used_tiled': False,          # Flag if tiling was used
+        }
         
         # Track timing
         start_time = time.time()
@@ -186,101 +202,384 @@ class SdxlModel(BaseImageModel):
                 # Note: Theme information would need to be passed in kwargs
                 theme = kwargs.get('theme', {})
                 lora_info = self._select_and_load_lora(theme)
-                
-            # Stage 1: Generate base image
+            
+            # ============ STAGE 1: Initial Generation ============
+            self.logger.log_stage("Stage 1", "Text-to-image generation")
+            self.logger.info(f"Generating at optimal size: {params.get('generation_size', 'default')}")
+            
             stage1_result = self._generate_stage1(prompt, seed, params, lora_info, temp_files)
             
-            # Save intermediate if requested
             if self._should_save_stages(params):
                 stage1_result['saved_path'] = self._save_intermediate(
-                    stage1_result['image'], 'stage1_base', prompt
+                    stage1_result['image'], 'stage1_generated', prompt
                 )
             
-            # Stage 2: Optional img2img refinement
+            # ============ STAGE 1.5: Progressive Aspect Adjustment ============
+            # This is the KEY CHANGE - aspect adjustment BEFORE refinement!
+            current_image_path = stage1_result['image_path']
+            current_image = stage1_result['image']
+            stage1_5_result = None
+            
+            # Check if aspect adjustment is needed
+            if self._needs_aspect_adjustment(params):
+                self.logger.log_stage("Stage 1.5", "Progressive aspect adjustment")
+                
+                # Calculate progressive strategy
+                current_size = current_image.size
+                target_aspect = params.get('target_aspect')
+                
+                progressive_steps = self.resolution_manager.calculate_progressive_outpaint_strategy(
+                    current_size,
+                    target_aspect
+                )
+                
+                if progressive_steps:
+                    self.logger.info(f"Aspect adjustment: {len(progressive_steps)} progressive steps")
+                    
+                    # Ensure we have inpaint pipeline
+                    if not hasattr(self, 'inpaint_pipe') or self.inpaint_pipe is None:
+                        self._create_inpaint_pipeline()
+                    
+                    # Create adjuster and perform adjustment
+                    adjuster = AspectAdjuster(pipeline=self.inpaint_pipe)
+                    
+                    # Pass metadata reference for boundary tracking
+                    adjuster.model_metadata = self.generation_metadata
+                    
+                    adjusted_path = adjuster.adjust_aspect_ratio(
+                        image_path=current_image_path,
+                        original_prompt=prompt,
+                        target_aspect=target_aspect,
+                        progressive_steps=progressive_steps,
+                        save_intermediates=self._should_save_stages(params)
+                    )
+                    
+                    # Update current image
+                    current_image = Image.open(adjusted_path)
+                    current_image_path = adjusted_path
+                    temp_files.append(adjusted_path)
+                    
+                    stage1_5_result = {
+                        'image': current_image,
+                        'image_path': current_image_path,
+                        'size': current_image.size,
+                        'steps': len(progressive_steps)
+                    }
+                    
+                    if self._should_save_stages(params):
+                        stage1_5_result['saved_path'] = self._save_intermediate(
+                            current_image, 'stage1_5_aspect_adjusted', prompt
+                        )
+                else:
+                    self.logger.info("No aspect adjustment needed")
+            
+            # ============ STAGE 2: Smart Quality Refinement ============
+            stage2_result = None
             initial_refinement = self.config['pipeline'].get('stages', {}).get('initial_refinement', {})
+
             if initial_refinement.get('enabled', True) and self.refiner_pipe:
-                stage2_result = self._refine_stage2(
-                    stage1_result['image'],
+                self.logger.log_stage("Stage 2", "Smart quality refinement")
+                self.logger.info(f"Stage 2 WILL RUN - Refiner loaded: {self.refiner_pipe is not None}")
+                
+                # Use smart refiner if available and config has multi-pass settings
+                if self.smart_refiner and initial_refinement.get('multi_pass_enabled', False):
+                    self.logger.info("Using smart multi-pass refinement for maximum detail preservation")
+                    
+                    refinement_results = self.smart_refiner.refine_smart(
+                        image_path=current_image_path,
+                        prompt=prompt,
+                        seed=seed,
+                        params=params,
+                        temp_files=temp_files
+                    )
+                    
+                    # Update current image
+                    current_image = refinement_results['image']
+                    current_image_path = refinement_results['image_path']
+                    
+                    stage2_result = {
+                        'image': current_image,
+                        'image_path': current_image_path,
+                        'size': refinement_results['size'],
+                        'method': refinement_results['method'],
+                        'passes': refinement_results['passes']
+                    }
+                    
+                    self.logger.info(f"Smart refinement complete: {refinement_results['passes']} passes")
+                else:
+                    # Continue with existing VRAM strategy code for backward compatibility
+                    # NEW: Intelligent refinement strategy selection
+                    from ..core.vram_calculator import VRAMCalculator
+                    vram_calc = VRAMCalculator()
+                    
+                    w, h = current_image.size
+                    strategy = vram_calc.determine_refinement_strategy(w, h)
+                    
+                    self.logger.info(
+                        f"Refinement strategy for {w}x{h}: {strategy['strategy']} "
+                        f"(Required: {strategy['vram_required_mb']:.0f}MB, "
+                        f"Available: {strategy['vram_available_mb']:.0f}MB)"
+                    )
+                    
+                    # Determine refinement strength based on aspect adjustment
+                    # More aggressive refinement after extreme aspect changes
+                    had_extreme_aspect = (stage1_5_result and 
+                                        stage1_5_result.get('steps', 0) >= 2)
+                    refinement_strength = 0.5 if had_extreme_aspect else 0.3
+                    
+                    if had_extreme_aspect:
+                        self.logger.info(
+                            f"Using higher refinement strength ({refinement_strength}) "
+                            f"after {stage1_5_result.get('steps', 0)}-step aspect adjustment"
+                        )
+                    
+                    # Execute appropriate strategy
+                    if strategy['strategy'] == 'full':
+                        # Standard full refinement
+                        stage2_result = self._refine_stage2_full(
+                            current_image,
+                            current_image_path,
+                            prompt,
+                            seed,
+                            params,
+                            temp_files,
+                            strength_override=refinement_strength
+                        )
+                    elif strategy['strategy'] == 'tiled':
+                        # Automatic tiled refinement
+                        self.logger.info(f"Using tiled refinement: {strategy['details']['message']}")
+                        
+                        from ..processing.tiled_refiner import TiledRefiner
+                        refiner = TiledRefiner(
+                            pipeline=self.refiner_pipe,
+                            vram_calculator=vram_calc
+                        )
+                        
+                        # Override tile size from strategy
+                        refiner.tile_size = strategy['details']['tile_size']
+                        refiner.overlap = strategy['details']['overlap']
+                        
+                        refined_path = refiner.refine_tiled(
+                            image_path=current_image_path,
+                            prompt=prompt,
+                            base_strength=refinement_strength,
+                            base_steps=50,
+                            seed=seed
+                        )
+                        
+                        refined_image = Image.open(refined_path)
+                        temp_files.append(refined_path)
+                        
+                        stage2_result = {
+                            'image': refined_image,
+                            'image_path': refined_path,
+                            'size': refined_image.size,
+                            'method': 'tiled',
+                            'tile_size': strategy['details']['tile_size']
+                        }
+                    else:  # cpu_offload
+                        # Last resort - CPU offload
+                        self.logger.warning(f"Using CPU offload: {strategy['details']['warning']}")
+                        
+                        from ..processing.cpu_offload_refiner import CPUOffloadRefiner
+                        cpu_refiner = CPUOffloadRefiner(pipeline=self.refiner_pipe)
+                        
+                        refined_path = cpu_refiner.refine_with_offload(
+                            image_path=current_image_path,
+                            prompt=prompt,
+                            strength=refinement_strength,
+                            steps=50,
+                            seed=seed
+                        )
+                        
+                        refined_image = Image.open(refined_path)
+                        temp_files.append(refined_path)
+                        
+                        stage2_result = {
+                            'image': refined_image,
+                            'image_path': refined_path,
+                            'size': refined_image.size,
+                            'method': 'cpu_offload',
+                            'warning': strategy['details']['warning']
+                        }
+                    
+                    # Update current image
+                    current_image = stage2_result['image']
+                    current_image_path = stage2_result['image_path']
+                
+                if self._should_save_stages(params):
+                    stage2_result['saved_path'] = self._save_intermediate(
+                        current_image, f"stage2_refined_{stage2_result.get('method', 'full')}", prompt
+                    )
+            else:
+                # FAIL LOUD - THIS SHOULD NOT HAPPEN
+                raise RuntimeError(
+                    f"Stage 2 CANNOT RUN! Enabled: {initial_refinement.get('enabled', True)}, "
+                    f"Refiner exists: {self.refiner_pipe is not None}. "
+                    f"This is a CRITICAL ERROR - refinement is required for quality!"
+                )
+            
+            # ============ STAGE 2.5: Tiled Ultra-Refinement (Optional) ============
+            stage2_5_result = None
+            tiled_refinement = self.config.get('resolution', {}).get('tiled_refinement', {})
+            
+            if (tiled_refinement.get('enabled', False) and 
+                params.get('quality_mode') == 'ultimate' and
+                current_image.size[0] * current_image.size[1] > 1024 * 1024):
+                
+                self.logger.log_stage("Stage 2.5", "Tiled ultra-refinement")
+                
+                stage2_5_result = self._tiled_ultra_refine(
+                    current_image,
+                    current_image_path,
                     prompt,
-                    seed,
                     params,
                     temp_files
                 )
                 
-                # Save intermediate if requested
-                if self._should_save_stages(params):
-                    stage2_result['saved_path'] = self._save_intermediate(
-                        stage2_result['image'], 'stage2_refined', prompt
-                    )
-            else:
-                stage2_result = stage1_result
-                
-            # Check if upscaling is requested
+                if stage2_5_result and not stage2_5_result.get('skipped'):
+                    current_image = stage2_5_result['image']
+                    current_image_path = stage2_5_result['image_path']
+                    
+                    if self._should_save_stages(params):
+                        stage2_5_result['saved_path'] = self._save_intermediate(
+                            current_image, 'stage2_5_tiled_refined', prompt
+                        )
+            
+            # ============ STAGE 3: Resolution Upscaling Only ============
+            stage3_result = None
+            
             if not params.get('no_upscale', False):
-                # Stage 3: Upscale 2x
-                stage3_result = self._upscale_stage3(stage2_result['image_path'], temp_dirs)
+                # Calculate upscale-only strategy (no aspect adjustment)
+                current_size = current_image.size
+                target_resolution = params.get('target_resolution')
                 
-                # Save intermediate if requested
-                if self._should_save_stages(params):
-                    # Open the upscaled image to save intermediate
-                    with Image.open(stage3_result['image_path']) as img:
-                        stage3_result['saved_path'] = self._save_intermediate(
-                            img.copy(), 'stage3_upscaled', prompt
+                if target_resolution and (
+                    target_resolution[0] > current_size[0] or 
+                    target_resolution[1] > current_size[1]
+                ):
+                    self.logger.log_stage("Stage 3", "Resolution upscaling")
+                    
+                    upscale_strategy = self.resolution_manager.calculate_upscale_strategy(
+                        current_size,
+                        target_resolution,
+                        current_size[0] / current_size[1],  # Current aspect
+                        target_resolution[0] / target_resolution[1]  # Target aspect (should match)
+                    )
+                    
+                    if upscale_strategy:
+                        stage3_result = self._upscale_stage3_simple(
+                            current_image_path,
+                            temp_dirs,
+                            upscale_strategy
                         )
-                
-                # Stage 4: Final crop/adjustment to 4K
-                stage4_result = self._finalize_stage4(stage3_result['image_path'])
-                
-                # Save intermediate if requested
-                if self._should_save_stages(params):
-                    with Image.open(stage4_result['image_path']) as img:
-                        stage4_result['saved_path'] = self._save_intermediate(
-                            img.copy(), 'stage4_final', prompt
+                        
+                        current_image_path = stage3_result['image_path']
+                        
+                        if self._should_save_stages(params):
+                            with Image.open(current_image_path) as img:
+                                stage3_result['saved_path'] = self._save_intermediate(
+                                    img.copy(), 'stage3_upscaled', prompt
+                                )
+                else:
+                    self.logger.info("No upscaling needed")
+            
+            # ============ STAGE 4: Final Adjustments ============
+            final_path = current_image_path
+            
+            if params.get('target_resolution'):
+                # Ensure exact target size
+                with Image.open(final_path) as img:
+                    if img.size != tuple(params['target_resolution']):
+                        self.logger.log_stage("Stage 4", "Final size adjustment")
+                        final_path = self._ensure_exact_size(
+                            final_path,
+                            params['target_resolution']
                         )
-                final_path = stage4_result['image_path']
-            else:
-                # Skip upscaling, use stage2 result as final
-                self.logger.info("Skipping upscaling as requested")
-                stage3_result = None
-                stage4_result = None
-                final_path = stage2_result['image_path']
+                        temp_files.append(final_path)
+            
+            # Ensure final image is in the proper output directory
+            config = get_config()
+            if not str(final_path).startswith(str(config.paths.get('images_dir', ''))):
+                # Image is still in temp directory, move it to output directory
+                resolver = get_resolver()
+                output_dir = Path(config.paths.get('images_dir', str(resolver.get_data_dir() / 'wallpapers')))
+                output_dir.mkdir(exist_ok=True)
+                
+                # Create appropriate filename
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                if params.get('target_resolution'):
+                    res_str = f"{params['target_resolution'][0]}x{params['target_resolution'][1]}"
+                else:
+                    res_str = "generated"
+                filename = f"sdxl_{res_str}_{timestamp}.png"
+                
+                new_final_path = output_dir / filename
+                
+                # Copy the image to the output directory
+                import shutil
+                shutil.copy2(final_path, new_final_path)
+                self.logger.info(f"Moved final image to: {new_final_path}")
+                final_path = new_final_path
             
             # Unload LoRA if loaded
             if lora_info:
                 self._unload_lora()
                 
-            # Prepare final results
-            duration = time.time() - start_time
+            # Load final image for metadata
+            final_image = Image.open(final_path)
             
-            results = {
+            # Save metadata
+            self.save_metadata(final_path, {
+                'prompt': prompt,
+                'seed': seed,
+                'model': self.model_name,
+                'pipeline_version': 'v2.0-progressive',
+                'generation_size': params.get('generation_size'),
+                'final_size': final_image.size,
+                'stages': {
+                    'stage1': stage1_result.get('size') if stage1_result else None,
+                    'stage1_5': stage1_5_result.get('size') if stage1_5_result else None,
+                    'stage2': 'refined' if stage2_result and not stage2_result.get('skipped') else 'skipped',
+                    'stage2_5': 'tiled' if stage2_5_result and not stage2_5_result.get('skipped') else 'skipped',
+                    'stage3': 'upscaled' if stage3_result else 'skipped',
+                },
+                'parameters': params
+            })
+            
+            # Build comprehensive result
+            duration = time.time() - start_time
+            result = {
+                'success': True,
                 'image_path': final_path,
+                'seed': seed,
+                'size': final_image.size,
+                'stages': {
+                    'generation': stage1_result,
+                    'aspect_adjustment': stage1_5_result,
+                    'refinement': stage2_result,
+                    'tiled_refinement': stage2_5_result,
+                    'upscaling': stage3_result
+                },
                 'metadata': {
                     'prompt': prompt,
                     'seed': seed,
-                    'model': 'SDXL',
-                    'lora': lora_info,
-                    'parameters': params,
-                    'duration': duration,
-                    'timestamp': datetime.now().isoformat()
-                },
-                'stages': {
-                    'stage1_generation': stage1_result,
-                    'stage2_refinement': stage2_result if self.config['pipeline'].get('enable_img2img_refine') else None,
-                    'stage3_upscale': stage3_result,
-                    'stage4_finalize': stage4_result
+                    'model': self.model_name,
+                    'generation_time': duration
                 }
             }
             
-            # Save metadata
-            self.save_metadata(Path(results['image_path']), results['metadata'])
-            
             # Log completion
-            self.log_generation_complete(Path(results['image_path']), duration)
+            self.log_generation_complete(Path(final_path), duration)
             
-            return results
+            return result
             
+        except torch.cuda.OutOfMemoryError as e:
+            self.logger.error(f"CUDA OUT OF MEMORY: {str(e)}")
+            raise
         except Exception as e:
-            raise GenerationError(self.name, "pipeline execution", e)
+            self.logger.error(f"Generation FAILED: {type(e).__name__}: {str(e)}")
+            raise
         finally:
             # Clean up all temp files created during generation
             for temp_file in temp_files:
@@ -322,10 +621,16 @@ class SdxlModel(BaseImageModel):
         self.logger.log_stage("Stage 1", "SDXL generation")
         
         # Set up generator
-        generator = torch.Generator(device="cuda").manual_seed(seed)
+        generator = torch.Generator(device=self.device).manual_seed(seed)
         
-        # Get dimensions from config (16:9 for SDXL)
-        width, height = 1344, 768  # Native SDXL 16:9
+        # Get dimensions from generation parameters or use default
+        if 'generation_size' in params:
+            width, height = params['generation_size']
+            self.logger.info(f"Using calculated generation size: {width}x{height}")
+        else:
+            # Fallback to default 16:9 for SDXL
+            width, height = 1344, 768
+            self.logger.info(f"Using default generation size: {width}x{height}")
         
         # Select scheduler
         scheduler_class = self._get_scheduler_class(params.get('scheduler'))
@@ -403,11 +708,9 @@ class SdxlModel(BaseImageModel):
                 lora_names = [lora['name'] for lora in lora_info['stack']]
                 self.logger.info(f"Using {lora_info['count']} LoRAs: {', '.join(lora_names)} (total weight: {lora_info['total_weight']:.2f})")
             
-        # Check if we should use ensemble of expert denoisers
-        use_ensemble = (
-            self.refiner_pipe is not None and 
-            self.config['pipeline'].get('stages', {}).get('base_generation', {}).get('enable_refiner', True)
-        )
+        # DISABLED: Ensemble mode was causing partial denoising and quality issues
+        # The refiner is now used as a separate stage (Stage 2) with full passes
+        use_ensemble = False  # Force single-pass generation for consistent quality
         
         if use_ensemble:
             # Ensemble of expert denoisers approach
@@ -455,7 +758,8 @@ class SdxlModel(BaseImageModel):
         temp_dir = resolver.get_temp_dir() / 'ai-wallpaper'
         temp_dir.mkdir(parents=True, exist_ok=True)
         stage1_path = temp_dir / f"sdxl_stage1_{timestamp}.png"
-        image.save(stage1_path, "PNG", quality=100)
+        # Save with lossless PNG
+        save_lossless_png(image, stage1_path)
         # Track for cleanup
         temp_files.append(stage1_path)
         
@@ -492,7 +796,7 @@ class SdxlModel(BaseImageModel):
         self.logger.log_stage("Stage 2", "SDXL img2img refinement")
         
         # Set up generator
-        generator = torch.Generator(device="cuda").manual_seed(seed + 1)  # Different seed for variation
+        generator = torch.Generator(device=self.device).manual_seed(seed + 1)  # Different seed for variation
         
         # Get refinement settings from new config structure
         refinement_config = self.config['pipeline'].get('stages', {}).get('initial_refinement', {})
@@ -550,7 +854,8 @@ class SdxlModel(BaseImageModel):
         temp_dir = resolver.get_temp_dir() / 'ai-wallpaper'
         temp_dir.mkdir(parents=True, exist_ok=True)
         stage2_path = temp_dir / f"sdxl_stage2_{timestamp}.png"
-        refined.save(stage2_path, "PNG", quality=100)
+        # Save refined image with lossless PNG
+        save_lossless_png(refined, stage2_path)
         # Track for cleanup
         temp_files.append(stage2_path)
         
@@ -563,24 +868,72 @@ class SdxlModel(BaseImageModel):
             strength=strength
         )
         
-    def _upscale_stage3(self, input_path: Path, temp_dirs: List[Path]) -> Dict[str, Any]:
-        """Stage 3: Upscale using Real-ESRGAN to reach 4K
+    def _upscale_stage3(self, input_path: Path, temp_dirs: List[Path], params: Dict[str, Any]) -> Dict[str, Any]:
+        """Stage 3: Upscale using pre-calculated strategy
         
         Args:
             input_path: Path to input image
+            temp_dirs: List of temporary directories to track
+            params: Generation parameters with upscale strategy
             
         Returns:
             Stage results
         """
-        # Calculate required scale factor
-        current_width, current_height = self.config['generation']['dimensions']
-        target_width = 3840
-        scale_factor = target_width / current_width  # 3840 / 1344 = 2.857
-        
-        # Round to nearest supported scale (3x)
-        scale_factor = 3
-        
-        self.logger.log_stage("Stage 3", f"Real-ESRGAN {scale_factor}x upscaling")
+        if 'upscale_strategy' in params:
+            # Use pre-calculated strategy
+            strategy = params['upscale_strategy']
+            self.logger.info(f"Using upscale strategy with {len(strategy)} steps")
+            
+            current_image_path = input_path
+            
+            for i, step in enumerate(strategy):
+                self.logger.log_stage(f"Stage 3.{i+1}", f"Apply {step['method']}")
+                
+                if step['method'] == 'realesrgan':
+                    current_image_path = self._apply_realesrgan(
+                        current_image_path,
+                        step['scale'],
+                        step['model'],
+                        temp_dirs
+                    )
+                elif step['method'] == 'aspect_adjust_img2img':
+                    # AI-based aspect adjustment
+                    target_aspect = step['output_size'][0] / step['output_size'][1]
+                    current_image_path = self._apply_aspect_adjustment(
+                        current_image_path,
+                        params.get('prompt', ''),
+                        target_aspect,
+                        temp_dirs
+                    )
+                elif step['method'] == 'lanczos_downsample':
+                    # High-quality downsampling
+                    current_image_path = self._apply_downsample(
+                        current_image_path,
+                        step['output_size']
+                    )
+                elif step['method'] == 'center_crop':
+                    # Deprecated - should not be used, but kept for backward compatibility
+                    self.logger.warning("center_crop is deprecated - use lanczos_downsample instead")
+                    current_image_path = self._apply_center_crop(
+                        current_image_path,
+                        step['output_size']
+                    )
+            
+            return self._standardize_stage_result(
+                image_path=current_image_path,
+                image=None,
+                size=strategy[-1]['output_size'] if strategy else None
+            )
+        else:
+            # Fallback to old logic for backward compatibility
+            current_width, current_height = self.config['generation']['dimensions']
+            target_width = 3840
+            scale_factor = target_width / current_width  # 3840 / 1344 = 2.857
+            
+            # Round to nearest supported scale (3x)
+            scale_factor = 3
+            
+            self.logger.log_stage("Stage 3", f"Real-ESRGAN {scale_factor}x upscaling")
         
         # Find Real-ESRGAN
         realesrgan_script = self._find_realesrgan()
@@ -669,23 +1022,37 @@ class SdxlModel(BaseImageModel):
             scale_factor=scale_factor
         )
         
-    def _finalize_stage4(self, input_path: Path) -> Dict[str, Any]:
-        """Stage 4: Final adjustment to 4K
+    def _finalize_stage4(self, input_path: Path, params: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Stage 4: Final adjustment to target resolution
         
         Args:
             input_path: Path to upscaled image
+            params: Generation parameters including target resolution
             
         Returns:
             Stage results
         """
+        # Check if user wants to skip default 4K upscaling
+        if params and params.get('skip_default_upscale'):
+            self.logger.log_stage("Stage 4", "Skipping default 4K finalization - using user resolution")
+            # Just return the input as-is
+            return self._standardize_stage_result(
+                image_path=input_path,
+                image=None
+            )
+            
         self.logger.log_stage("Stage 4", "Finalizing to 4K")
         
         # Load upscaled image
         with Image.open(input_path) as temp_image:
             image = temp_image.copy()  # Create a copy that persists after context exit
         
-        # Target 4K resolution
-        target_width, target_height = 3840, 2160
+        # Target resolution - use from params if available, otherwise default to 4K
+        if params and 'target_resolution' in params:
+            target_width, target_height = params['target_resolution']
+            self.logger.info(f"Using target resolution from params: {target_width}x{target_height}")
+        else:
+            target_width, target_height = 3840, 2160
         
         # Handle different upscaled sizes
         if image.size != (target_width, target_height):
@@ -709,7 +1076,8 @@ class SdxlModel(BaseImageModel):
         output_dir.mkdir(exist_ok=True)
         
         final_path = output_dir / filename
-        image.save(final_path, "PNG", quality=100)
+        # Save final image with lossless PNG
+        save_lossless_png(image, final_path)
         
         self.logger.info(f"Stage 4 complete: Final 4K image at {image.size}")
         self.logger.info(f"Saved to: {final_path}")
@@ -798,6 +1166,33 @@ class SdxlModel(BaseImageModel):
         loaded_loras = []
         category = theme.get('category', 'UNKNOWN')
         
+        # Determine if this theme category typically contains people/faces
+        face_likely_categories = {
+            'LOCAL_MEDIA',      # Star Trek, Marvel, etc. - characters/people
+            'GENRE_FUSION',     # Often includes characters
+            'ANIME_MANGA',      # Characters are central
+        }
+        
+        # Theme elements that suggest people/faces
+        face_likely_elements = [
+            'character', 'hero', 'villain', 'person', 'people', 'portrait',
+            'face', 'crew', 'team', 'warrior', 'soldier', 'human', 'man', 'woman',
+            'doctor', 'captain', 'commander', 'pilot', 'detective', 'wizard'
+        ]
+        
+        # Check if theme likely contains faces
+        theme_has_faces = category in face_likely_categories
+        
+        # Also check theme elements if available
+        if not theme_has_faces and 'elements' in theme:
+            theme_text = ' '.join(str(e).lower() for e in theme.get('elements', []))
+            theme_has_faces = any(element in theme_text for element in face_likely_elements)
+            
+        if theme_has_faces:
+            self.logger.info(f"Theme category '{category}' likely contains faces - face helper will be included")
+        else:
+            self.logger.info(f"Theme category '{category}' unlikely to contain faces - skipping face helper")
+        
         # Theme-specific LoRA presets using SDXL-compatible LoRAs
         theme_presets = {
             "NATURE_EXPANDED": {
@@ -842,7 +1237,8 @@ class SdxlModel(BaseImageModel):
             },
             "DEFAULT": {
                 "required": ["extremely_detailed_sdxl"],
-                "optional": ["photorealistic_slider_sdxl", "face_helper_sdxl"],
+                "optional": ["photorealistic_slider_sdxl"],
+                "optional_if_faces": ["face_helper_sdxl"],
                 "weights": {"extremely_detailed_sdxl": 0.8, "photorealistic_slider_sdxl": 1.0, "face_helper_sdxl": 0.8}
             }
         }
@@ -863,7 +1259,7 @@ class SdxlModel(BaseImageModel):
                 })
                 
         # Load optional LoRAs with probability
-        for lora_name in preset["optional"]:
+        for lora_name in preset.get("optional", []):
             if lora_name in self.available_loras and random.random() > 0.5:
                 lora_info = self.available_loras[lora_name]
                 weight = preset["weights"].get(lora_name, random.uniform(*lora_info["weight_range"]))
@@ -873,6 +1269,20 @@ class SdxlModel(BaseImageModel):
                     "weight": weight,
                     "category": lora_info["category"]
                 })
+                
+        # Load face-specific LoRAs only if theme likely contains faces
+        if theme_has_faces:
+            for lora_name in preset.get("optional_if_faces", []):
+                if lora_name in self.available_loras:
+                    lora_info = self.available_loras[lora_name]
+                    weight = preset["weights"].get(lora_name, random.uniform(*lora_info["weight_range"]))
+                    loaded_loras.append({
+                        "name": lora_name,
+                        "path": lora_info["path"],
+                        "weight": weight,
+                        "category": lora_info["category"]
+                    })
+                    self.logger.debug(f"Added face-specific LoRA: {lora_name}")
                 
         # Apply LoRA stack
         if loaded_loras:
@@ -913,13 +1323,17 @@ class SdxlModel(BaseImageModel):
                 }
                 
             except Exception as e:
-                self.logger.error(f"Failed to load LoRA stack: {e}")
+                error_msg = f"Failed to load LoRA stack: {e}"
                 
-                # For compatibility errors, don't try fallback since it will also fail
+                # For compatibility errors, provide detailed explanation
                 if "size mismatch" in str(e).lower():
-                    self.logger.warning("LoRA size mismatch detected - this usually indicates architecture incompatibility")
-                    self.logger.warning("Generation will continue without LoRAs")
-                    return None
+                    raise ModelError(
+                        f"{error_msg}\n"
+                        f"LoRA architecture incompatibility detected!\n"
+                        f"The LoRA models are not compatible with the current SDXL model.\n"
+                        f"This usually means the LoRA was trained on a different model version.\n"
+                        f"Please use compatible LoRAs or disable LoRA loading."
+                    )
                 
                 # For other errors, try fallback to single LoRA
                 if loaded_loras:
@@ -1074,7 +1488,7 @@ class SdxlModel(BaseImageModel):
                 )
             
             # Move to GPU and enable optimizations
-            self.refiner_pipe = self.refiner_pipe.to("cuda")
+            self.refiner_pipe = self.refiner_pipe.to(self.device)
             self.refiner_pipe.enable_vae_slicing()
             self.refiner_pipe.enable_vae_tiling()
             
@@ -1086,6 +1500,14 @@ class SdxlModel(BaseImageModel):
                 pass
                 
             self.logger.info("SDXL Refiner loaded successfully")
+            
+            # Initialize smart quality refiner - MUST SUCCEED
+            self.smart_refiner = None
+            if self.refiner_pipe:
+                self.smart_refiner = SmartQualityRefiner(self)
+                self.logger.info("Smart quality refiner initialized")
+            else:
+                self.logger.warning("No refiner pipe - smart refiner not initialized")
             
         except Exception as e:
             self.logger.warning(f"Failed to load SDXL Refiner: {e}")
@@ -1177,9 +1599,14 @@ class SdxlModel(BaseImageModel):
         raise UpscalerError("Real-ESRGAN", Exception(error_msg))
         
     def _pre_cleanup(self) -> None:
-        """Pre-cleanup hook: unload LoRA and unregister from resource manager"""
+        """Pre-cleanup hook: clean up all pipelines and LoRA"""
         # Unload LoRA if loaded
         self._unload_lora()
+        
+        # Clean up inpaint pipeline if created
+        if hasattr(self, 'inpaint_pipe'):
+            self.logger.debug("Cleaning up inpaint pipeline")
+            del self.inpaint_pipe
         
         # Unregister from resource manager
         self.resource_manager.unregister_model(self.model_name)
@@ -1271,3 +1698,419 @@ class SdxlModel(BaseImageModel):
             'disk_gb': 15,  # Model is ~6.5GB + LoRAs
             'time_minutes': 5
         }
+    
+    def _needs_aspect_adjustment(self, params: Dict[str, Any]) -> bool:
+        """Check if aspect adjustment is needed"""
+        gen_aspect = params.get('generation_aspect')
+        target_aspect = params.get('target_aspect')
+        
+        if not gen_aspect or not target_aspect:
+            return False
+        
+        # Check if aspects are significantly different
+        return abs(gen_aspect - target_aspect) > 0.05
+    
+    def _create_inpaint_pipeline(self):
+        """Create inpaint pipeline from existing pipeline"""
+        if not hasattr(self, 'pipe') or self.pipe is None:
+            raise RuntimeError("Cannot create inpaint pipeline - base pipeline not initialized")
+        
+        self.logger.info("Creating SDXL inpaint pipeline for aspect adjustment")
+        
+        from diffusers import StableDiffusionXLInpaintPipeline
+        
+        # Create inpaint pipeline sharing components
+        self.inpaint_pipe = StableDiffusionXLInpaintPipeline(
+            vae=self.pipe.vae,
+            text_encoder=self.pipe.text_encoder,
+            text_encoder_2=self.pipe.text_encoder_2,
+            tokenizer=self.pipe.tokenizer,
+            tokenizer_2=self.pipe.tokenizer_2,
+            unet=self.pipe.unet,
+            scheduler=self.pipe.scheduler
+        ).to(self.device)
+        
+        # Apply same optimizations
+        if hasattr(self.pipe, 'enable_model_cpu_offload'):
+            self.inpaint_pipe.enable_model_cpu_offload()
+        
+        self.logger.info("Inpaint pipeline created successfully")
+    
+    def _refine_stage2_full(self,
+                           image: Image.Image,
+                           image_path: Path,
+                           prompt: str,
+                           seed: int,
+                           params: Dict,
+                           temp_files: List,
+                           strength_override: Optional[float] = None) -> Dict[str, Any]:
+        """
+        Refine the full image (after aspect adjustment).
+        FAILS if image is too large - no fallbacks!
+        """
+        w, h = image.size
+        
+        # Ensure SDXL-compatible dimensions
+        if w % 8 != 0 or h % 8 != 0:
+            w = ((w + 7) // 8) * 8
+            h = ((h + 7) // 8) * 8
+            image = image.resize((w, h), Image.Resampling.LANCZOS)
+            self.logger.info(f"Resized for refinement: {w}x{h}")
+        
+        # Get refinement parameters
+        refine_config = self.config['pipeline']['stages'].get('initial_refinement', {})
+        refine_strength = strength_override or refine_config.get('denoising_strength', 0.3)
+        refine_steps = refine_config.get('steps', 50)
+        
+        self.logger.info(f"Refining {w}x{h} image (strength: {refine_strength}, steps: {refine_steps})")
+        
+        # Run refinement
+        generator = torch.Generator(device=self.device).manual_seed(seed + 1)
+        
+        refined = self.refiner_pipe(
+            prompt=prompt,
+            image=image,
+            strength=refine_strength,
+            num_inference_steps=refine_steps,
+            generator=generator,
+            width=w,
+            height=h
+        ).images[0]
+        
+        # Save refined image
+        temp_dir = Path(tempfile.gettempdir()) / 'ai-wallpaper'
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        
+        refined_path = temp_dir / f"refined_{w}x{h}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.png"
+        # Save refined image with lossless PNG
+        save_lossless_png(refined, refined_path)
+        temp_files.append(refined_path)
+        
+        return {
+            'image': refined,
+            'image_path': refined_path,
+            'size': refined.size
+        }
+    
+    def _upscale_stage3_simple(self,
+                              image_path: Path,
+                              temp_dirs: List[Path],
+                              strategy: List[Dict]) -> Dict[str, Any]:
+        """
+        Simple upscaling without aspect adjustment.
+        Only Real-ESRGAN and downsampling operations.
+        """
+        if not strategy:
+            return {'image_path': image_path, 'skipped': True}
+        
+        current_path = image_path
+        
+        for i, step in enumerate(strategy):
+            self.logger.log_stage(f"Stage 3.{i+1}", step['description'])
+            
+            if step['method'] == 'realesrgan':
+                current_path = self._apply_realesrgan(
+                    current_path,
+                    step['scale'],
+                    step['model'],
+                    temp_dirs
+                )
+            elif step['method'] == 'lanczos_downsample':
+                current_path = self._apply_downsample(
+                    current_path,
+                    step['output_size']
+                )
+            else:
+                raise ValueError(f"Unknown upscale method: {step['method']}")
+        
+        # Get final size
+        with Image.open(current_path) as img:
+            final_size = img.size
+        
+        return {
+            'image_path': current_path,
+            'size': final_size,
+            'steps_applied': len(strategy)
+        }
+    
+    def _ensure_exact_size(self, image_path: Path, target_size: Tuple[int, int]) -> Path:
+        """Ensure image is exactly the target size"""
+        with Image.open(image_path) as img:
+            if img.size == target_size:
+                return image_path
+            
+            # Use high-quality downsampling
+            downsampler = HighQualityDownsampler()
+            return downsampler.downsample(
+                image_path=image_path,
+                target_size=target_size
+            )
+    
+    def _tiled_ultra_refine(self,
+                           image: Image.Image,
+                           image_path: Path,
+                           prompt: str,
+                           params: Dict,
+                           temp_files: List) -> Optional[Dict[str, Any]]:
+        """
+        Stage 2.5: Tiled ultra-refinement for maximum quality.
+        Only runs in ultimate quality mode on large images.
+        """
+        # Check if we should run
+        if params.get('quality_mode') != 'ultimate':
+            return {'skipped': True, 'reason': 'Not in ultimate quality mode'}
+        
+        w, h = image.size
+        if w * h < 1024 * 1024:
+            return {'skipped': True, 'reason': 'Image too small for tiled refinement'}
+        
+        # Check VRAM availability
+        if torch.cuda.is_available():
+            free_vram = torch.cuda.mem_get_info()[0] / 1024**3  # GB
+            if free_vram < 8.0:
+                raise RuntimeError(
+                    f"Insufficient VRAM for tiled refinement. "
+                    f"Need 8GB+, have {free_vram:.1f}GB free"
+                )
+        
+        try:
+            # Import here to avoid circular dependencies
+            from ..processing.tiled_refiner import TiledRefiner
+            
+            # Create refiner with img2img pipeline
+            # Use refiner if available, otherwise main pipeline
+            refine_pipe = self.refiner_pipe if self.refiner_pipe else self.pipe
+            
+            if not refine_pipe:
+                raise RuntimeError("No pipeline available for tiled refinement")
+            
+            refiner = TiledRefiner(pipeline=refine_pipe)
+            
+            # Run tiled refinement
+            refined_path = refiner.refine_tiled(
+                image_path=image_path,
+                prompt=prompt,
+                base_strength=0.25,  # Lower strength for tiled
+                base_steps=40
+            )
+            
+            # Load result
+            refined_image = Image.open(refined_path)
+            temp_files.append(refined_path)
+            
+            return {
+                'image': refined_image,
+                'image_path': refined_path,
+                'size': refined_image.size,
+                'tiles_processed': True
+            }
+            
+        except Exception as e:
+            error_msg = f"Tiled refinement FAILED: {type(e).__name__}: {str(e)}"
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg) from e
+    
+    def _apply_downsample(self, image_path: Path, target_size: Tuple[int, int]) -> Path:
+        """Apply high-quality downsampling"""
+        downsampler = HighQualityDownsampler()
+        return downsampler.downsample(
+            image_path=image_path,
+            target_size=target_size
+        )
+    
+    def _apply_realesrgan(self, input_path: Path, scale: int, model: str, temp_dirs: List[Path]) -> Path:
+        """Apply Real-ESRGAN upscaling
+        
+        Args:
+            input_path: Path to input image
+            scale: Scale factor (2, 4, etc)
+            model: Real-ESRGAN model name
+            temp_dirs: List of temporary directories to track
+            
+        Returns:
+            Path to upscaled image
+        """
+        realesrgan_script = self._find_realesrgan()
+        
+        # Prepare output directory
+        resolver = get_resolver()
+        temp_dir = resolver.get_temp_dir() / 'ai-wallpaper'
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        temp_output_dir = temp_dir / f"upscale_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+        temp_output_dir.mkdir(exist_ok=True)
+        temp_dirs.append(temp_output_dir)
+        
+        # Build command
+        if str(realesrgan_script).endswith('.py'):
+            cmd = [
+                sys.executable,
+                str(realesrgan_script),
+                "-n", model,
+                "-i", str(input_path),
+                "-o", str(temp_output_dir),
+                "--outscale", str(scale),
+                "-t", "512",  # Tile size
+                "--fp32"      # Maximum precision
+            ]
+        else:
+            # Binary version
+            cmd = [
+                str(realesrgan_script),
+                "-i", str(input_path),
+                "-o", str(temp_output_dir),
+                "-s", str(scale),
+                "-n", model.lower().replace('_', '-'),
+                "-t", "512"
+            ]
+        
+        # Log full command for debugging
+        self.logger.debug(f"Real-ESRGAN command: {' '.join(cmd)}")
+        
+        # Check input image exists and log its properties
+        if not input_path.exists():
+            raise UpscalerError(str(input_path), FileNotFoundError("Input image not found"))
+        
+        with Image.open(input_path) as img:
+            w, h = img.size
+            self.logger.info(f"Input image size: {w}x{h}, aspect ratio: {w/h:.2f}")
+        
+        # Execute with better error capture
+        self.logger.info(f"Running Real-ESRGAN {scale}x with model {model}")
+        
+        try:
+            # Use Popen for better control over stdout/stderr
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            stdout, stderr = process.communicate()
+            
+            if process.returncode != 0:
+                self.logger.error(f"Real-ESRGAN failed with exit code: {process.returncode}")
+                self.logger.error(f"Command: {' '.join(cmd)}")
+                self.logger.error(f"STDOUT:\n{stdout}")
+                self.logger.error(f"STDERR:\n{stderr}")
+                
+                # Extract meaningful error message
+                error_msg = stderr.strip() or stdout.strip() or f"Exit code {process.returncode}"
+                raise UpscalerError(str(input_path), Exception(f"Real-ESRGAN error: {error_msg}"))
+            
+            self.logger.debug(f"Real-ESRGAN stdout: {stdout}")
+            if stderr:
+                self.logger.debug(f"Real-ESRGAN stderr: {stderr}")
+                
+        except FileNotFoundError:
+            raise UpscalerError(str(input_path), FileNotFoundError("Real-ESRGAN script not found"))
+        except Exception as e:
+            self.logger.error(f"Unexpected error running Real-ESRGAN: {type(e).__name__}: {e}")
+            raise UpscalerError(str(input_path), e)
+        
+        # Find output
+        output_files = list(temp_output_dir.glob("*.png"))
+        if not output_files:
+            raise UpscalerError(str(input_path), FileNotFoundError("No output from Real-ESRGAN"))
+        
+        return output_files[0]
+    
+    def _apply_center_crop(self, input_path: Path, target_size: Tuple[int, int]) -> Path:
+        """Apply center cropping to exact dimensions
+        
+        Args:
+            input_path: Path to input image
+            target_size: Target dimensions (width, height)
+            
+        Returns:
+            Path to cropped image
+        """
+        target_w, target_h = target_size
+        
+        with Image.open(input_path) as img:
+            current_w, current_h = img.size
+            
+            self.logger.info(f"Center cropping from {current_w}x{current_h} to {target_w}x{target_h}")
+            
+            # Calculate crop box
+            left = (current_w - target_w) // 2
+            top = (current_h - target_h) // 2
+            right = left + target_w
+            bottom = top + target_h
+            
+            # Validate crop dimensions
+            if left < 0 or top < 0 or right > current_w or bottom > current_h:
+                raise ValueError(
+                    f"Cannot crop {current_w}x{current_h} to {target_w}x{target_h} - target is larger"
+                )
+            
+            # Crop
+            cropped = img.crop((left, top, right, bottom))
+            
+            # Save with unique filename
+            resolver = get_resolver()
+            temp_dir = resolver.get_temp_dir() / 'ai-wallpaper'
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            temp_path = temp_dir / f"cropped_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.png"
+            # Save cropped image with lossless PNG
+            save_lossless_png(cropped, temp_path)
+            
+            return temp_path
+    
+    def _apply_aspect_adjustment(self, input_path: Path, prompt: str, 
+                               target_aspect: float, temp_dirs: List[Path]) -> Path:
+        """Apply AI-based aspect ratio adjustment using img2img
+        
+        Args:
+            input_path: Path to input image
+            prompt: Original generation prompt
+            target_aspect: Target aspect ratio (width/height)
+            temp_dirs: List of temporary directories
+            
+        Returns:
+            Path to adjusted image
+        """
+        # Initialize aspect adjuster with current pipeline
+        # Note: We need to create an img2img pipeline from the existing pipeline
+        if hasattr(self, 'pipe') and self.pipe is not None:
+            # Create inpaint pipeline if needed (for mask-based outpainting)
+            if not hasattr(self, 'inpaint_pipe'):
+                self.logger.info("Creating inpaint pipeline for aspect adjustment")
+                from diffusers import StableDiffusionXLInpaintPipeline
+                self.inpaint_pipe = StableDiffusionXLInpaintPipeline(
+                    vae=self.pipe.vae,
+                    text_encoder=self.pipe.text_encoder,
+                    text_encoder_2=self.pipe.text_encoder_2,
+                    tokenizer=self.pipe.tokenizer,
+                    tokenizer_2=self.pipe.tokenizer_2,
+                    unet=self.pipe.unet,
+                    scheduler=self.pipe.scheduler
+                ).to(self.pipe.device)
+            
+            adjuster = AspectAdjuster(pipeline=self.inpaint_pipe)
+        else:
+            # No pipeline available, AspectAdjuster will fall back to reflect method
+            self.logger.warning("No SDXL pipeline available for outpainting, will use reflect method")
+            adjuster = AspectAdjuster(pipeline=None)
+        
+        # Perform adjustment
+        adjusted_path = adjuster.adjust_aspect_ratio(
+            image_path=input_path,
+            original_prompt=prompt,
+            target_aspect=target_aspect
+        )
+        
+        return adjusted_path
+    
+    def _apply_downsample(self, input_path: Path, target_size: Tuple[int, int]) -> Path:
+        """Apply high-quality downsampling to exact size
+        
+        Args:
+            input_path: Path to input image
+            target_size: Target dimensions (width, height)
+            
+        Returns:
+            Path to downsampled image
+        """
+        # Use the new HighQualityDownsampler class
+        downsampler = HighQualityDownsampler()
+        
+        # Delegate to the downsampler
+        return downsampler.downsample(
+            image_path=input_path,
+            target_size=target_size
+        )

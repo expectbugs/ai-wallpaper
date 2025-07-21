@@ -41,7 +41,7 @@ log_message "Changed to directory: $SCRIPT_DIR"
 # NOTE: Log rotation moved to end of script - only delete old logs after successful completion
 
 # Activate Python virtual environment
-VENV_PATH="/home/user/grace/.venv"
+VENV_PATH="${AI_WALLPAPER_VENV:-$HOME/.venv}"
 log_message "Activating virtual environment: $VENV_PATH"
 source "$VENV_PATH/bin/activate"
 

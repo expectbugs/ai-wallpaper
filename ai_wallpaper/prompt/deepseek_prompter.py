@@ -171,7 +171,7 @@ class DeepSeekPrompter(BasePrompter):
         context_desc = self.get_context_description(context)
         
         # Get requirements
-        max_words = model_requirements.get('max_words', 65)
+        max_words = model_requirements.get('max_words', 100)
         style = model_requirements.get('style', 'photorealistic')
         
         # Build deepseek instruction
@@ -183,7 +183,7 @@ Generate a single, richly detailed image prompt for a desktop wallpaper.
 Context: {context_desc}
 
 Requirements:
-- The prompt MUST be under 65 words. Do NOT go over.
+- The prompt MUST be under 30 words. Do NOT go over.
 - The prompt MUST be the **only** thing in your output. Absolutely no extra text, no commentary, no quotes, no labels, no headers.
 - Combine the theme elements creatively in unique ways.
 - Describe a vivid scene with clear composition: foreground, midground, and background.
@@ -192,7 +192,7 @@ Requirements:
 - Add rich texture and material details.
 - Make it {style} and gallery-worthy.
 
-ONLY return the image prompt. No other text.  65 Words or less, so keep it short.
+ONLY return the image prompt. No other text.  30 Words or less, so keep it short.
 
 Image prompt:
 """.strip()

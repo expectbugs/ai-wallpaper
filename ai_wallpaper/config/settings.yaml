@@ -3,7 +3,7 @@
 # Application behavior
 app:
   name: "AI Wallpaper Generator"
-  version: "3.0.0"
+  version: "4.5.3"
   debug: false
   fail_loud: true  # Always fail with verbose errors
   

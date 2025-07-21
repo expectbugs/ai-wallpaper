@@ -52,6 +52,7 @@ class ConfigManager:
         self.settings = {}
         self.themes = {}
         self.system = {}  # New system config
+        self.resolution = {}  # Resolution config
         
         # Track loaded files for debugging
         self.loaded_files = []
@@ -70,6 +71,7 @@ class ConfigManager:
         self.settings = self._load_yaml("settings.yaml", required=True)
         self.themes = self._load_yaml("themes.yaml", required=True)
         self.system = self._merge_with_dynamic_paths(self._load_yaml("system.yaml", required=False), base_config.get('system', {}))
+        self.resolution = self._load_yaml("resolution.yaml", required=True)
         
         # If system.yaml exists and has weather config, merge it
         if self.system and 'weather' in self.system:
@@ -83,6 +85,7 @@ class ConfigManager:
         self.settings = self._expand_env_vars(self.settings)
         self.themes = self._expand_env_vars(self.themes)
         self.system = self._expand_env_vars(self.system)
+        self.resolution = self._expand_env_vars(self.resolution)
         
         # Apply dynamic path resolution
         self._apply_dynamic_paths()
@@ -91,7 +94,7 @@ class ConfigManager:
         self._validate_all()
         
         # Count required vs optional files
-        required_count = 5  # models, paths, weather, settings, themes
+        required_count = 6  # models, paths, weather, settings, themes, resolution
         optional_count = 1  # system
         loaded_count = len(self.loaded_files)
         
@@ -159,6 +162,9 @@ class ConfigManager:
         
         # Validate themes
         self._validate_themes()
+        
+        # Validate resolution
+        self._validate_resolution()
         
     def _validate_models(self) -> None:
         """Validate model configuration"""
@@ -279,6 +285,32 @@ class ConfigManager:
                 
         print(f"[CONFIG] Loaded {len(self.themes['categories'])} theme categories "
               f"with total weight: {total_weight}")
+    
+    def _validate_resolution(self) -> None:
+        """Validate resolution configuration"""
+        if not self.resolution.get('resolution'):
+            raise ConfigurationError("No resolution configuration found in resolution.yaml")
+            
+        res_config = self.resolution['resolution']
+        
+        # Validate required fields
+        required_fields = ['default', 'quality_mode']
+        for field in required_fields:
+            if field not in res_config:
+                raise ConfigurationError(
+                    f"Resolution config missing required field: {field}"
+                )
+                
+        # Validate quality mode
+        valid_modes = ['fast', 'balanced', 'ultimate']
+        if res_config['quality_mode'] not in valid_modes:
+            raise ConfigurationError(
+                f"Invalid quality_mode '{res_config['quality_mode']}'. "
+                f"Must be one of: {', '.join(valid_modes)}"
+            )
+            
+        print(f"[CONFIG] Resolution config loaded: default={res_config['default']}, "
+              f"quality={res_config['quality_mode']}")
               
     def get_model_config(self, model_name: str) -> Dict[str, Any]:
         """Get configuration for a specific model

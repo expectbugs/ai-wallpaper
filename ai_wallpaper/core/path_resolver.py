@@ -9,6 +9,7 @@ import shutil
 import tempfile
 from pathlib import Path
 from typing import Optional, List, Dict
+from .exceptions import PathError
 
 
 class PathResolver:
@@ -154,10 +155,25 @@ class PathResolver:
         ]
         
         for directory in dirs_to_create:
-            directory.mkdir(parents=True, exist_ok=True)
-            # Set proper permissions (755 for directories)
-            if self.platform != 'Windows':
-                os.chmod(directory, 0o755)
+            try:
+                directory.mkdir(parents=True, exist_ok=True)
+                # Set proper permissions (755 for directories)
+                if self.platform != 'Windows':
+                    os.chmod(directory, 0o755)
+            except OSError as e:
+                raise PathError(
+                    f"Failed to create directory",
+                    str(directory),
+                    str(e),
+                    f"Check permissions for parent directory: {directory.parent}"
+                )
+            except Exception as e:
+                raise PathError(
+                    f"Unexpected error creating directory",
+                    str(directory),
+                    f"{type(e).__name__}: {e}",
+                    "This is critical - directories must be created for proper operation"
+                )
 
 
 # Singleton instance

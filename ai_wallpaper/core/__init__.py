@@ -18,10 +18,12 @@ from .exceptions import (
     PipelineError,
     UpscalerError,
     APIError,
+    VRAMError,
     handle_error
 )
 from .weather import WeatherClient, get_weather_context
 from .wallpaper import WallpaperSetter, set_wallpaper, verify_wallpaper
+from .vram_calculator import VRAMCalculator
 
 __all__ = [
     # Config
@@ -49,6 +51,7 @@ __all__ = [
     'PipelineError',
     'UpscalerError',
     'APIError',
+    'VRAMError',
     'handle_error',
     
     # Weather
@@ -58,5 +61,8 @@ __all__ = [
     # Wallpaper
     'WallpaperSetter',
     'set_wallpaper',
-    'verify_wallpaper'
+    'verify_wallpaper',
+    
+    # VRAM Management
+    'VRAMCalculator'
 ]

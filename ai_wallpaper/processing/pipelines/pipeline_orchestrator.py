@@ -14,6 +14,7 @@ from datetime import datetime
 from ...core import get_logger, get_config
 from ...core.exceptions import PipelineError, UpscalerError
 from ..upscaler import get_upscaler
+from ...utils.lossless_save import save_lossless_png
 
 
 class PipelineStage(ABC):
@@ -104,7 +105,9 @@ class Lanczos4KStage(PipelineStage):
             output_dir.mkdir(exist_ok=True)
             
             output_path = output_dir / f"final_4k_{timestamp}.png"
-            image_4k.save(output_path, "PNG", quality=100, optimize=False)
+            # Save with lossless PNG
+            from ...utils import save_lossless_png
+            save_lossless_png(image_4k, output_path)
             
             return {
                 'image_path': output_path,
@@ -138,7 +141,8 @@ class CropStage(PipelineStage):
             # Save cropped image
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             cropped_path = input_path.parent / f"stage_cropped_{timestamp}.png"
-            cropped.save(cropped_path, "PNG", quality=100)
+            # Save cropped with lossless PNG
+            save_lossless_png(cropped, cropped_path)
             
             return {
                 'image_path': cropped_path,
@@ -195,7 +199,16 @@ class PipelineOrchestrator:
                 target_size = tuple(self.model.config['pipeline']['final_resolution'])
                 stages.append(Lanczos4KStage(target_size))
             else:
-                self.logger.warning(f"Unknown stage: {stage_name}")
+                valid_stages = [
+                    "generate", "aspect_adjust", "smart_refine", 
+                    "lanczos_4k", "real_esrgan_8k", "dalle_crop",
+                    "dalle_upscale", "dalle_downsample"
+                ]
+                raise ValueError(
+                    f"Unknown pipeline stage: {stage_name}!\n"
+                    f"Valid stages: {', '.join(valid_stages)}\n"
+                    f"Pipeline integrity is critical - no unknown stages!"
+                )
                 
         return stages
         

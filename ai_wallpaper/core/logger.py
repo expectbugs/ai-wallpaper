@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Any
 import traceback
+from .exceptions import LoggingError
 
 from .config_manager import get_config
 from .exceptions import handle_error
@@ -61,6 +62,7 @@ class AIWallpaperLogger:
             
     def _setup_logger(self):
         """Set up logger with console and file handlers"""
+        log_dir = None  # Initialize for error handling
         try:
             config = get_config()
             log_config = config.settings.get('logging', {})
@@ -129,10 +131,15 @@ class AIWallpaperLogger:
                 )
                 
         except Exception as e:
-            # If logger setup fails, print to stderr and continue
-            print(f"WARNING: Failed to set up logger: {e}", file=sys.stderr)
-            # Set up basic console logging as fallback
-            logging.basicConfig(level=logging.INFO)
+            error_detail = f"{str(e)}\nTraceback: {traceback.format_exc()}"
+            resolution = "Check configuration and permissions"
+            if log_dir:
+                resolution = f"Check write permissions for log directory: {log_dir}"
+            raise LoggingError(
+                "Failed to set up enhanced logging",
+                error_detail,
+                resolution
+            )
             
     def _get_format_string(self, template: str) -> str:
         """Convert template format to Python logging format"""
@@ -268,8 +275,8 @@ class AIWallpaperLogger:
                         msg = f"[{stage}] {msg}"
                     self.info(msg)
                     return
-            except:
-                pass  # Fall back to PyTorch only
+            except Exception as e:
+                self.warning(f"Failed to get full VRAM info: {e}. Using PyTorch info only.")
                 
             # Fallback to PyTorch only
             if torch.cuda.is_available():
@@ -280,7 +287,8 @@ class AIWallpaperLogger:
                     msg = f"[{stage}] {msg}"
                 self.info(msg)
         except ImportError:
-            pass  # PyTorch not available
+            # PyTorch not available - this is OK for CPU-only mode
+            self.debug("PyTorch not available - VRAM logging disabled (CPU mode)")
             
     def log_separator(self, char: str = "-", length: int = 50):
         """Log a separator line"""

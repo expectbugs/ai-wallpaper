@@ -9,6 +9,7 @@ import yaml
 import json
 
 from ..core import get_logger, get_config
+from ..core.exceptions import ConfigurationError
 
 class ConfigCommand:
     """Handles configuration management"""
@@ -81,8 +82,11 @@ class ConfigCommand:
         try:
             # Try to parse as JSON first (for bools, numbers, lists)
             parsed_value = json.loads(value)
-        except:
-            # Keep as string
+        except json.JSONDecodeError:
+            # Not JSON, keep as string
+            parsed_value = value
+        except Exception as e:
+            self.logger.debug(f"Unexpected error parsing value '{value}': {e}. Treating as string.")
             parsed_value = value
             
         # TODO: Implement actual config setting

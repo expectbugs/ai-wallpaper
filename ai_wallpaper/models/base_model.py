@@ -16,13 +16,14 @@ from ..core.logger import get_logger
 from ..core.exceptions import ModelError, GenerationError, ResourceError
 from ..core.config_manager import get_config
 from ..utils.file_manager import get_file_manager
+from ..core.resolution_manager import ResolutionManager, ResolutionConfig
 from PIL import Image
 
 class BaseImageModel(ABC):
     """Abstract base class for all image generation models"""
     
     def __init__(self, config: Dict[str, Any]):
-        """Initialize base model
+        """Initialize base model with resolution support
         
         Args:
             config: Model configuration from models.yaml
@@ -32,6 +33,10 @@ class BaseImageModel(ABC):
         self.model_name = config.get('name', self.name.lower().replace(' ', '_'))
         self._initialized = False
         self.logger = get_logger(model=self.name)
+        
+        # Initialize resolution manager
+        self.resolution_manager = ResolutionManager()
+        self.resolution_manager.logger = self.logger
         
         # Track resource usage
         self._vram_usage = 0
@@ -335,9 +340,9 @@ class BaseImageModel(ABC):
                 )
                 self.logger.error(error_msg)
                 raise ModelError(self.name, error_msg)
-        except:
-            # If we can't check output dir, continue (might not exist yet)
-            pass
+        except Exception as e:
+            # Output dir might not exist yet, which is OK - it will be created later
+            self.logger.debug(f"Could not check output directory: {e}. Will be created if needed.")
             
         self.logger.debug(
             f"Disk space check passed: {free_mb:.0f}MB free in temp, "
@@ -371,14 +376,15 @@ class BaseImageModel(ABC):
         """
         return []  # Override in subclasses
         
-    def get_generation_params(self, **kwargs) -> Dict[str, Any]:
-        """Get final generation parameters with defaults
+    def get_generation_params(self, target_resolution: Optional[Tuple[int, int]] = None, **kwargs) -> Dict[str, Any]:
+        """Get final generation parameters with defaults and resolution support
         
         Args:
+            target_resolution: Target resolution tuple (width, height)
             **kwargs: User-provided parameters
             
         Returns:
-            Merged parameters dictionary
+            Merged parameters dictionary with resolution support
         """
         # Start with model defaults
         params = self.config.get('generation', {}).copy()
@@ -396,6 +402,48 @@ class BaseImageModel(ABC):
             
         # Merge with user parameters
         params.update(kwargs)
+        
+        # Handle resolution parameters if target_resolution is provided
+        if target_resolution:
+            # Check if user wants exact resolution (not upscaled to default)
+            config = get_config()
+            default_final = tuple(config.settings.get('output', {}).get('final_resolution', [3840, 2160]))
+            
+            # If user specifies a resolution smaller than or equal to default, respect it exactly
+            if (target_resolution[0] <= default_final[0] and 
+                target_resolution[1] <= default_final[1]):
+                # User wants THIS resolution, not upscaled to 4K
+                params['skip_default_upscale'] = True
+                self.logger.info(f"User requested specific resolution {target_resolution} - will not upscale to default {default_final}")
+            
+            # Calculate optimal generation size
+            optimal_size = self.resolution_manager.get_optimal_generation_size(
+                target_resolution, 
+                self.model_name
+            )
+            
+            # Calculate aspect ratios for strategy planning
+            generation_aspect = optimal_size[0] / optimal_size[1]
+            target_aspect = target_resolution[0] / target_resolution[1]
+            
+            params['generation_size'] = optimal_size
+            params['target_resolution'] = target_resolution
+            params['generation_aspect'] = generation_aspect
+            params['target_aspect'] = target_aspect
+            
+            # Calculate complete processing strategy
+            params['upscale_strategy'] = self.resolution_manager.calculate_upscale_strategy(
+                optimal_size,
+                target_resolution,
+                generation_aspect,
+                target_aspect
+            )
+            
+            # Log the complete strategy
+            self.logger.info(f"Generation strategy for {target_resolution[0]}x{target_resolution[1]}:")
+            self.logger.info(f"  1. Generate at: {optimal_size}")
+            for i, step in enumerate(params['upscale_strategy']):
+                self.logger.info(f"  {i+2}. {step['description']}")
         
         return params
         
@@ -623,7 +671,9 @@ class BaseImageModel(ABC):
         filename = f"{self.model_name}_{stage_name}_{timestamp}_{prompt_excerpt}.png"
         
         path = stage_dir / filename
-        image.save(path, "PNG", quality=100, optimize=False)
+        # Save intermediate with lossless PNG
+        from ..utils import save_lossless_png
+        save_lossless_png(image, path)
         
         self.logger.info(f"Saved intermediate stage: {path}")
         return path

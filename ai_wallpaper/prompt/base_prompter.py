@@ -98,7 +98,7 @@ WEATHER INTEGRATION: Current {weather.get('condition', 'clear')} conditions with
 Create a prompt for an amazing high-quality image that combines these elements in an unexpected, creative way.
 The image should incorporate the weather naturally into the theme.
 Focus on photorealistic quality with rich detail and perfect composition.
-Keep the image prompt under 65 words.
+Keep the image prompt under 30 words.
 """
         
         return instruction.strip()

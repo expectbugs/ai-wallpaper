@@ -19,7 +19,7 @@ CONTEXT_SETTINGS = dict(
 )
 
 @click.group(context_settings=CONTEXT_SETTINGS, invoke_without_command=True)
-@click.version_option(version='3.0.0', prog_name='AI Wallpaper Generator')
+@click.version_option(version='4.5.3', prog_name='AI Wallpaper Generator')
 @click.option('--config', type=click.Path(), help='Custom config directory')
 @click.option('--verbose', is_flag=True, help='Enable verbose output')
 @click.option('--dry-run', is_flag=True, help='Show plan without executing')

@@ -26,3 +26,76 @@ resolution:
     prefer_integer_scales: true
     max_single_scale: 4
     ensemble_models: false  # Can enable for ultra quality
+  
+  # Aspect ratio adjustment settings
+  aspect_adjustment:
+    enabled: true
+    method: "outpaint"  # "outpaint", "reflect", or "blur"
+    
+    # Outpainting settings (for img2img expansion)
+    outpaint:
+      strength: 0.95            # Compromise - high enough to generate content
+      min_strength: 0.20        # Minimum for final passes
+      max_strength: 0.95        # Maximum for initial passes
+      prompt_suffix: ", seamlessly extending the existing image, naturally continuing all elements"
+      mask_blur: 120            # INCREASED from 64
+      steps: 100                # INCREASED from 80 for quality
+      
+    # Alternative methods
+    reflect:
+      blur_edges: true
+      blur_radius: 64
+      
+  # Downsampling settings
+  downsampling:
+    method: "lanczos"  # "lanczos", "cubic", or "area"
+    sharpen_after: true
+    sharpen_radius: 0.5
+    sharpen_percent: 50
+    sharpen_threshold: 10
+  
+  # Progressive outpainting for extreme aspect ratios
+  progressive_outpainting:
+    enabled: true
+    
+    # When to use different strategies
+    aspect_ratio_thresholds:
+      single_step_max: 2.5
+      progressive_min: 2.5
+      max_supported: 8.0
+    
+    # REMOVED: max_refinement_pixels - NO LIMITS!
+    # Dynamic VRAM-based decisions instead
+    
+    # Memory management
+    vram_management:
+      # Model overhead for planning
+      sdxl_refiner_overhead_mb: 6144  # 6GB
+      safety_buffer: 0.2  # 20% safety margin
+      
+      # Minimum tile sizes for fallback
+      min_tile_size: 512
+      preferred_tile_size: 1024
+      tile_overlap: 256
+    
+    # Adaptive parameters for better blending
+    adaptive_parameters:
+      blur_radius:
+        base_radius: 120                # INCREASED from 64
+        medium_expansion_multiplier: 2.5  # INCREASED from 2.0
+        large_expansion_multiplier: 3.5   # INCREASED from 3.0
+      
+      steps:
+        base_steps: 80                 # More steps for quality
+        medium_expansion_multiplier: 1.2
+        large_expansion_multiplier: 1.5
+      
+      guidance:
+        base_guidance: 7.5
+        reduction_per_step: 0.0        # Keep guidance consistent
+    
+    # Expansion ratios for maximum context overlap
+    expansion_ratios:
+      first_step: 1.4           # REDUCED from default 2.0
+      middle_steps: 1.25        # REDUCED from default 1.5
+      final_step: 1.15          # REDUCED from default 1.3

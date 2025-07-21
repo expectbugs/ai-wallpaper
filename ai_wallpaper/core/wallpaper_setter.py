@@ -6,12 +6,13 @@ import os
 import sys
 import platform
 import subprocess
-import logging
 from pathlib import Path
 from typing import Optional, List, Dict
+from .logger import get_logger
+from .exceptions import WallpaperError
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WallpaperSetter:
@@ -62,8 +63,10 @@ class WallpaperSetter:
                         return 'kde'
                     elif 'xfce4-session' in ps_output:
                         return 'xfce'
-                except:
-                    pass
+                except subprocess.CalledProcessError as e:
+                    logger.warning(f"Failed to detect desktop environment via ps: {e}")
+                except Exception as e:
+                    logger.warning(f"Unexpected error detecting desktop environment: {e}")
                     
                 return 'unknown'
                 
@@ -78,8 +81,11 @@ class WallpaperSetter:
             True if successful, False otherwise
         """
         if not image_path.exists():
-            logger.error(f"Wallpaper image not found: {image_path}")
-            return False
+            raise WallpaperError(
+                f"Wallpaper image not found: {image_path}\n"
+                f"The generated wallpaper file is missing!\n"
+                f"This is critical - cannot set non-existent wallpaper."
+            )
             
         # Convert to absolute path
         image_path = image_path.resolve()
@@ -99,16 +105,38 @@ class WallpaperSetter:
             'sway': self._set_sway,
         }
         
+        primary_error = None
+        
         if setter := setters.get(self.desktop):
             try:
                 return setter(image_path)
             except Exception as e:
-                logger.error(f"Failed to set wallpaper using {self.desktop} method: {e}")
+                primary_error = e
+                logger.warning(f"Failed with {self.desktop} method: {e}")
                 # Try generic method as fallback
                 if self.desktop != 'unknown':
-                    return self._set_generic(image_path)
-        else:
+                    try:
+                        logger.info(f"Attempting generic fallback method...")
+                        return self._set_generic(image_path)
+                    except Exception as fallback_error:
+                        raise WallpaperError(
+                            f"All wallpaper setting methods failed!\n"
+                            f"Primary method ({self.desktop}): {primary_error}\n"
+                            f"Generic fallback: {fallback_error}\n"
+                            f"Image path: {image_path}\n"
+                            f"This is unacceptable - wallpaper MUST be set!"
+                        )
+        
+        # No specific setter, try generic
+        try:
             return self._set_generic(image_path)
+        except Exception as e:
+            raise WallpaperError(
+                f"Failed to set wallpaper using generic method!\n"
+                f"Desktop environment: {self.desktop}\n"
+                f"Error: {e}\n"
+                f"Image path: {image_path}"
+            )
             
     def _set_windows(self, image_path: Path) -> bool:
         """Set wallpaper on Windows."""
@@ -125,12 +153,24 @@ class WallpaperSetter:
                 logger.info(f"Successfully set Windows wallpaper: {image_path}")
                 return True
             else:
-                logger.error("Windows API call failed")
-                return False
+                raise WallpaperError(
+                    "Windows API call failed to set wallpaper!\n"
+                    f"Image path: {image_path}\n"
+                    "The SystemParametersInfoW call returned False.\n"
+                    "This usually means Windows rejected the wallpaper."
+                )
                 
+        except ImportError as e:
+            raise WallpaperError(
+                f"Failed to import Windows ctypes module: {e}\n"
+                "This is required for setting wallpaper on Windows."
+            )
         except Exception as e:
-            logger.error(f"Windows wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"Windows wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_macos(self, image_path: Path) -> bool:
         """Set wallpaper on macOS."""
@@ -154,12 +194,26 @@ class WallpaperSetter:
                 logger.info(f"Successfully set macOS wallpaper: {image_path}")
                 return True
             else:
-                logger.error(f"osascript failed: {result.stderr}")
-                return False
+                raise WallpaperError(
+                    f"osascript failed to set wallpaper!\n"
+                    f"Return code: {result.returncode}\n"
+                    f"Error output: {result.stderr}\n"
+                    f"Image path: {image_path}\n"
+                    "This usually means macOS rejected the AppleScript command."
+                )
                 
+        except subprocess.SubprocessError as e:
+            raise WallpaperError(
+                f"Failed to run osascript command: {e}\n"
+                f"Image path: {image_path}\n"
+                "osascript is required for setting wallpaper on macOS."
+            )
         except Exception as e:
-            logger.error(f"macOS wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"macOS wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_gnome(self, image_path: Path) -> bool:
         """Set wallpaper on GNOME."""
@@ -185,9 +239,20 @@ class WallpaperSetter:
             logger.info(f"Successfully set GNOME wallpaper: {image_path}")
             return True
             
+        except subprocess.CalledProcessError as e:
+            raise WallpaperError(
+                f"gsettings command failed!\n"
+                f"Command: {e.cmd}\n"
+                f"Return code: {e.returncode}\n"
+                f"Image path: {image_path}\n"
+                "This usually means GNOME is not running or gsettings is not available."
+            )
         except Exception as e:
-            logger.error(f"GNOME wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"GNOME wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_kde(self, image_path: Path) -> bool:
         """Set wallpaper on KDE Plasma."""
@@ -214,9 +279,20 @@ class WallpaperSetter:
             logger.info(f"Successfully set KDE wallpaper: {image_path}")
             return True
             
+        except subprocess.CalledProcessError as e:
+            raise WallpaperError(
+                f"KDE wallpaper command failed!\n"
+                f"Command: {e.cmd}\n"
+                f"Return code: {e.returncode}\n"
+                f"Image path: {image_path}\n"
+                "This usually means KDE Plasma is not running or qdbus is not available."
+            )
         except Exception as e:
-            logger.error(f"KDE wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"KDE wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_xfce(self, image_path: Path) -> bool:
         """Set wallpaper on XFCE."""
@@ -245,9 +321,20 @@ class WallpaperSetter:
             logger.info(f"Successfully set XFCE wallpaper: {image_path}")
             return True
             
+        except subprocess.CalledProcessError as e:
+            raise WallpaperError(
+                f"XFCE wallpaper command failed!\n"
+                f"Command: {e.cmd}\n"
+                f"Return code: {e.returncode}\n"
+                f"Image path: {image_path}\n"
+                "This usually means XFCE is not running or xfconf-query is not available."
+            )
         except Exception as e:
-            logger.error(f"XFCE wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"XFCE wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_mate(self, image_path: Path) -> bool:
         """Set wallpaper on MATE."""
@@ -260,9 +347,20 @@ class WallpaperSetter:
             logger.info(f"Successfully set MATE wallpaper: {image_path}")
             return True
             
+        except subprocess.CalledProcessError as e:
+            raise WallpaperError(
+                f"MATE wallpaper command failed!\n"
+                f"Command: {e.cmd}\n"
+                f"Return code: {e.returncode}\n"
+                f"Image path: {image_path}\n"
+                "This usually means MATE is not running or gsettings is not available."
+            )
         except Exception as e:
-            logger.error(f"MATE wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"MATE wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_cinnamon(self, image_path: Path) -> bool:
         """Set wallpaper on Cinnamon."""
@@ -275,9 +373,20 @@ class WallpaperSetter:
             logger.info(f"Successfully set Cinnamon wallpaper: {image_path}")
             return True
             
+        except subprocess.CalledProcessError as e:
+            raise WallpaperError(
+                f"Cinnamon wallpaper command failed!\n"
+                f"Command: {e.cmd}\n"
+                f"Return code: {e.returncode}\n"
+                f"Image path: {image_path}\n"
+                "This usually means Cinnamon is not running or gsettings is not available."
+            )
         except Exception as e:
-            logger.error(f"Cinnamon wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"Cinnamon wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_lxde(self, image_path: Path) -> bool:
         """Set wallpaper on LXDE."""
@@ -289,9 +398,20 @@ class WallpaperSetter:
             logger.info(f"Successfully set LXDE wallpaper: {image_path}")
             return True
             
+        except subprocess.CalledProcessError as e:
+            raise WallpaperError(
+                f"LXDE wallpaper command failed!\n"
+                f"Command: {e.cmd}\n"
+                f"Return code: {e.returncode}\n"
+                f"Image path: {image_path}\n"
+                "This usually means LXDE is not running or pcmanfm is not available."
+            )
         except Exception as e:
-            logger.error(f"LXDE wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"LXDE wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_lxqt(self, image_path: Path) -> bool:
         """Set wallpaper on LXQt."""
@@ -303,9 +423,20 @@ class WallpaperSetter:
             logger.info(f"Successfully set LXQt wallpaper: {image_path}")
             return True
             
+        except subprocess.CalledProcessError as e:
+            raise WallpaperError(
+                f"LXQt wallpaper command failed!\n"
+                f"Command: {e.cmd}\n"
+                f"Return code: {e.returncode}\n"
+                f"Image path: {image_path}\n"
+                "This usually means LXQt is not running or pcmanfm-qt is not available."
+            )
         except Exception as e:
-            logger.error(f"LXQt wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"LXQt wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_i3(self, image_path: Path) -> bool:
         """Set wallpaper on i3."""
@@ -327,12 +458,28 @@ class WallpaperSetter:
                 return True
                 
             else:
-                logger.error("Neither feh nor nitrogen found for i3")
-                return False
+                raise WallpaperError(
+                    "Neither feh nor nitrogen found for i3!\n"
+                    f"Image path: {image_path}\n"
+                    "i3 requires either feh or nitrogen to set wallpaper.\n"
+                    "Install with: sudo apt install feh\n"
+                    "Or: sudo apt install nitrogen"
+                )
                 
+        except subprocess.CalledProcessError as e:
+            raise WallpaperError(
+                f"i3 wallpaper command failed!\n"
+                f"Command: {e.cmd}\n"
+                f"Return code: {e.returncode}\n"
+                f"Image path: {image_path}\n"
+                "This usually means feh is not installed. Install with: sudo apt install feh"
+            )
         except Exception as e:
-            logger.error(f"i3 wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"i3 wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_sway(self, image_path: Path) -> bool:
         """Set wallpaper on Sway."""
@@ -344,9 +491,20 @@ class WallpaperSetter:
             logger.info(f"Successfully set Sway wallpaper: {image_path}")
             return True
             
+        except subprocess.CalledProcessError as e:
+            raise WallpaperError(
+                f"Sway wallpaper command failed!\n"
+                f"Command: {e.cmd}\n"
+                f"Return code: {e.returncode}\n"
+                f"Image path: {image_path}\n"
+                "This usually means swaymsg is not available or Sway is not running."
+            )
         except Exception as e:
-            logger.error(f"Sway wallpaper setting failed: {e}")
-            return False
+            raise WallpaperError(
+                f"Sway wallpaper setting failed: {e}\n"
+                f"Image path: {image_path}\n"
+                f"Error type: {type(e).__name__}"
+            )
             
     def _set_generic(self, image_path: Path) -> bool:
         """Generic wallpaper setting fallback."""
@@ -360,14 +518,24 @@ class WallpaperSetter:
             ['hsetroot', '-fill', str(image_path)],
         ]
         
+        errors = []
         for cmd in commands:
             try:
                 if subprocess.run(['which', cmd[0]], capture_output=True).returncode == 0:
                     subprocess.run(cmd, check=True)
                     logger.info(f"Successfully set wallpaper with {cmd[0]}")
                     return True
-            except:
+            except subprocess.CalledProcessError as e:
+                errors.append(f"{cmd[0]}: {e}")
+                continue
+            except Exception as e:
+                errors.append(f"{cmd[0]}: {type(e).__name__}: {e}")
                 continue
                 
-        logger.error("No suitable wallpaper setter found")
-        return False
+        raise WallpaperError(
+            f"No wallpaper setter could set the image!\n"
+            f"Image path: {image_path}\n"
+            f"Tried commands: {', '.join(c[0] for c in commands)}\n"
+            f"Errors: {'; '.join(errors) if errors else 'None found/installed'}\n"
+            "Install one of: feh, nitrogen, xwallpaper, or hsetroot"
+        )

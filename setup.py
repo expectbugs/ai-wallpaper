@@ -14,7 +14,7 @@ if readme_file.exists():
 
 setup(
     name="ai-wallpaper",
-    version="3.0.0",
+    version="4.5.3",
     author="AI Wallpaper Team",
     description="Ultra-high-quality 4K wallpaper generation using AI models",
     long_description=long_description,

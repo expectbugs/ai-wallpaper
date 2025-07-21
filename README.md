@@ -1,11 +1,14 @@
 # AI Wallpaper Generator
 
-Ultra-high-quality 4K wallpaper generation using AI models with weather integration and automated scheduling.
+Ultra-high-quality wallpaper generation at any resolution using AI models with weather integration and automated scheduling.
 
 ## Features
 
 - **Multiple AI Models**: FLUX.1-dev, DALL-E 3, GPT-Image-1, SDXL with Juggernaut XL v9 + 8 LoRAs
-- **8K→4K Pipeline**: Generate at base resolution, upscale to 8K, downsample to perfect 4K
+- **NO RESOLUTION LIMITS**: Generate at ANY resolution - 16K+, extreme ultrawide, any aspect ratio
+- **Dynamic Resolution Support**: Intelligent VRAM-based strategy selection with automatic fallbacks
+- **Resolution Presets**: 1080p to 8K, ultrawide, portrait, and unlimited custom dimensions
+- **Quality Modes**: Fast, balanced, and ultimate quality with seamless tiled refinement
 - **Weather Integration**: Real-time weather data influences artistic themes and moods
 - **Theme System**: 60+ curated themes across 10 categories with chaos mode
 - **Smart Prompting**: DeepSeek-r1:14b generates creative, contextual prompts
@@ -40,8 +43,9 @@ Ultra-high-quality 4K wallpaper generation using AI models with weather integrat
 
 ## Usage
 
+### Basic Generation
 ```bash
-# Generate with default model (FLUX)
+# Generate with default model (FLUX) at 4K
 ./ai-wallpaper generate
 
 # Use specific model
@@ -49,7 +53,42 @@ Ultra-high-quality 4K wallpaper generation using AI models with weather integrat
 
 # Random model selection
 ./ai-wallpaper generate --random-model
+```
 
+### Resolution Control
+```bash
+# Generate at specific resolution
+./ai-wallpaper generate --resolution 3840x2160
+
+# Use resolution presets
+./ai-wallpaper generate --resolution 4K
+./ai-wallpaper generate --resolution ultrawide_4K
+./ai-wallpaper generate --resolution 8K
+
+# Portrait orientation for vertical monitors
+./ai-wallpaper generate --resolution portrait_4K
+
+# Custom ultrawide setup
+./ai-wallpaper generate --resolution 5760x1080
+```
+
+### Quality Settings
+```bash
+# Ultimate quality mode (slower but best results)
+./ai-wallpaper generate --quality-mode ultimate
+
+# Balanced quality (default)
+./ai-wallpaper generate --quality-mode balanced
+
+# Fast mode (no tiled refinement)
+./ai-wallpaper generate --quality-mode fast
+
+# Disable tiled refinement specifically
+./ai-wallpaper generate --no-tiled-refinement
+```
+
+### Other Options
+```bash
 # Save intermediate stages
 ./ai-wallpaper generate --save-stages
 
@@ -71,6 +110,7 @@ Ultra-high-quality 4K wallpaper generation using AI models with weather integrat
 All settings are in YAML files under `ai_wallpaper/config/`:
 
 - `models.yaml` - Model settings and pipeline configurations
+- `resolution.yaml` - Resolution presets, quality modes, tiled refinement settings
 - `system.yaml` - Python venv, weather coordinates, paths
 - `themes.yaml` - Theme categories and definitions
 - `weather.yaml` - Weather API settings
@@ -80,29 +120,33 @@ All settings are in YAML files under `ai_wallpaper/config/`:
 ## Models
 
 ### FLUX.1-dev (Default)
-- **Pipeline**: Generate 1920x1088 → Real-ESRGAN 8K → Lanczos 4K
+- **Pipeline**: Generate at optimal size → Real-ESRGAN upscaling → target resolution
 - **Quality**: Maximum (100 steps, bfloat16)
+- **Resolution**: Any resolution with intelligent dimension calculation
 - **Requirements**: 24GB VRAM, Real-ESRGAN
-- **Time**: ~11 minutes
+- **Time**: ~5-15 minutes depending on target resolution
 
 ### DALL-E 3
-- **Pipeline**: API generation → crop → Real-ESRGAN 4x → 4K
+- **Pipeline**: API generation → crop → Real-ESRGAN upscaling → target resolution
 - **Quality**: HD, vivid style
+- **Resolution**: Supports dynamic resolution with intelligent cropping
 - **Requirements**: OpenAI API key
-- **Time**: ~2 minutes
+- **Time**: ~2-5 minutes
 
 ### GPT-Image-1
-- **Pipeline**: Direct API or Responses API → crop → upscale
+- **Pipeline**: Direct API or Responses API → crop → upscale → target resolution
 - **Quality**: High quality
+- **Resolution**: Flexible resolution support
 - **Requirements**: OpenAI API key
-- **Time**: ~3 minutes
+- **Time**: ~3-6 minutes
 
 ### SDXL + LoRA
-- **Pipeline**: Generate 1920x1024 → Real-ESRGAN 2x → 4K
+- **Pipeline**: Generate at optimal size → Real-ESRGAN multi-step → target resolution
 - **Quality**: 8 LoRAs with theme-based auto-selection (anime, cyberpunk, sci-fi, fantasy + 4 general)
 - **LoRA System**: Up to 5 simultaneous LoRAs, 4.0 total weight limit
+- **Resolution**: Dynamic generation sizes with intelligent upscaling strategy
 - **Requirements**: 16GB VRAM
-- **Time**: ~8 minutes
+- **Time**: ~8-20 minutes depending on target resolution and quality mode
 
 ## Scheduling
 
