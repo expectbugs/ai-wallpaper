@@ -228,10 +228,28 @@ class SdxlModel(BaseImageModel):
                 current_size = current_image.size
                 target_aspect = params.get('target_aspect')
                 
-                progressive_steps = self.resolution_manager.calculate_progressive_outpaint_strategy(
-                    current_size,
-                    target_aspect
-                )
+                # Check if SWPO is enabled (CLI override takes precedence)
+                swpo_config = self.config.get('resolution', {}).get('progressive_outpainting', {}).get('sliding_window', {})
+                # If swpo is None (not specified in CLI), use config value
+                cli_swpo = params.get('swpo')
+                use_swpo = cli_swpo if cli_swpo is not None else swpo_config.get('enabled', True)
+                
+                if use_swpo:
+                    # Calculate sliding window steps
+                    self.logger.info("Using Sliding Window Progressive Outpainting (SWPO)")
+                    progressive_steps = self.resolution_manager.calculate_sliding_window_strategy(
+                        current_size=(current_image.width, current_image.height),
+                        target_size=(sdxl_params['width'], sdxl_params['height']),
+                        window_size=params.get('window_size', swpo_config.get('window_size', 200)),
+                        overlap_ratio=params.get('overlap_ratio', swpo_config.get('overlap_ratio', 0.8))
+                    )
+                else:
+                    # Fall back to original progressive strategy
+                    target_aspect = sdxl_params['width'] / sdxl_params['height']
+                    progressive_steps = self.resolution_manager.calculate_progressive_outpaint_strategy(
+                        current_size=(current_image.width, current_image.height),
+                        target_aspect=target_aspect
+                    )
                 
                 if progressive_steps:
                     self.logger.info(f"Aspect adjustment: {len(progressive_steps)} progressive steps")

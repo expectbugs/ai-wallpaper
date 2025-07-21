@@ -410,6 +410,118 @@ class ResolutionManager:
         
         return steps
     
+    def calculate_sliding_window_strategy(self,
+                                        current_size: Tuple[int, int],
+                                        target_size: Tuple[int, int],
+                                        window_size: int = 200,
+                                        overlap_ratio: float = 0.8) -> List[Dict]:
+        """
+        Calculate sliding window outpainting strategy for maximum context preservation.
+        
+        Args:
+            current_size: Current image dimensions (width, height)
+            target_size: Target dimensions (width, height)
+            window_size: Size of each expansion window in pixels
+            overlap_ratio: Overlap between consecutive windows (0.0-1.0)
+            
+        Returns:
+            List of sliding window steps
+            
+        Raises:
+            ValueError: If inputs are invalid
+        """
+        # Input validation
+        if not current_size or len(current_size) != 2:
+            raise ValueError(f"Invalid current_size: {current_size}")
+        
+        if not target_size or len(target_size) != 2:
+            raise ValueError(f"Invalid target_size: {target_size}")
+        
+        current_w, current_h = current_size
+        target_w, target_h = target_size
+        
+        if current_w <= 0 or current_h <= 0:
+            raise ValueError(f"Invalid current dimensions: {current_w}x{current_h}")
+        
+        if target_w <= 0 or target_h <= 0:
+            raise ValueError(f"Invalid target dimensions: {target_w}x{target_h}")
+        
+        if window_size <= 0:
+            raise ValueError(f"Invalid window_size: {window_size}")
+        
+        if not 0.0 <= overlap_ratio < 1.0:
+            raise ValueError(f"Invalid overlap_ratio: {overlap_ratio}")
+        
+        steps = []
+        
+        # Calculate step size (window minus overlap)
+        step_size = int(window_size * (1.0 - overlap_ratio))
+        
+        # Determine if we need horizontal, vertical, or both expansions
+        need_horizontal = target_w > current_w
+        need_vertical = target_h > current_h
+        
+        if need_horizontal:
+            # Calculate horizontal sliding windows
+            temp_w = current_w
+            temp_h = target_h if need_vertical else current_h
+            window_num = 1
+            
+            while temp_w < target_w:
+                # Calculate next window position
+                next_w = min(temp_w + window_size, target_w)
+                
+                # Ensure we reach exactly target_w on last step
+                if target_w - next_w < step_size:
+                    next_w = target_w
+                
+                steps.append({
+                    "method": "sliding_window",
+                    "current_size": (temp_w, temp_h),
+                    "target_size": (next_w, temp_h),
+                    "window_size": next_w - temp_w,
+                    "overlap_size": window_size - step_size if window_num > 1 else 0,
+                    "direction": "horizontal",
+                    "window_number": window_num,
+                    "description": f"H-Window {window_num}: {temp_w}x{temp_h} → {next_w}x{temp_h} (+{next_w-temp_w}px)"
+                })
+                
+                temp_w = temp_w + step_size  # Move by step size, not window size
+                window_num += 1
+        
+        if need_vertical:
+            # Calculate vertical sliding windows (after horizontal if both needed)
+            temp_w = target_w if need_horizontal else current_w
+            temp_h = current_h
+            window_num = 1
+            
+            while temp_h < target_h:
+                next_h = min(temp_h + window_size, target_h)
+                
+                if target_h - next_h < step_size:
+                    next_h = target_h
+                
+                steps.append({
+                    "method": "sliding_window",
+                    "current_size": (temp_w, temp_h),
+                    "target_size": (temp_w, next_h),
+                    "window_size": next_h - temp_h,
+                    "overlap_size": window_size - step_size if window_num > 1 else 0,
+                    "direction": "vertical",
+                    "window_number": window_num,
+                    "description": f"V-Window {window_num}: {temp_w}x{temp_h} → {temp_w}x{next_h} (+{next_h-temp_h}px)"
+                })
+                
+                temp_h = temp_h + step_size
+                window_num += 1
+        
+        self.logger.info(
+            f"Sliding window strategy: {len(steps)} windows "
+            f"({window_size}px window, {step_size}px step, {overlap_ratio:.0%} overlap)"
+        )
+        
+        return steps
+    
     def should_use_progressive_outpainting(self, aspect_change_ratio: float) -> bool:
         """
         Determine if progressive outpainting should be used.

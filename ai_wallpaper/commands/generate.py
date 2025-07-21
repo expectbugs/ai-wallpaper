@@ -45,7 +45,10 @@ class GenerateCommand:
         output_path: Optional[str] = None,
         resolution: Optional[str] = None,
         quality_mode: str = 'balanced',
-        no_tiled_refinement: bool = False
+        no_tiled_refinement: bool = False,
+        swpo: bool = False,
+        window_size: int = 200,
+        overlap_ratio: float = 0.8
     ) -> Dict[str, Any]:
         """Execute wallpaper generation
         
@@ -63,6 +66,9 @@ class GenerateCommand:
             resolution: Target resolution as WIDTHxHEIGHT or preset name
             quality_mode: Quality mode (fast/balanced/ultimate)
             no_tiled_refinement: Disable tiled refinement pass
+            swpo: Use Sliding Window Progressive Outpainting
+            window_size: SWPO window size in pixels
+            overlap_ratio: SWPO overlap ratio between windows
             
         Returns:
             Generation results
@@ -105,7 +111,10 @@ class GenerateCommand:
                 save_stages,
                 resolution,
                 quality_mode,
-                no_tiled_refinement
+                no_tiled_refinement,
+                swpo,
+                window_size,
+                overlap_ratio
             )
             
             # Step 6: Generate image
@@ -350,7 +359,10 @@ class GenerateCommand:
         save_stages: bool,
         resolution: Optional[str],
         quality_mode: str,
-        no_tiled_refinement: bool
+        no_tiled_refinement: bool,
+        swpo: bool,
+        window_size: int,
+        overlap_ratio: float
     ) -> Dict[str, Any]:
         """Prepare generation parameters
         
@@ -362,6 +374,9 @@ class GenerateCommand:
             resolution: Target resolution (WIDTHxHEIGHT or preset)
             quality_mode: Quality mode (fast/balanced/ultimate)
             no_tiled_refinement: Disable tiled refinement
+            swpo: Enable Sliding Window Progressive Outpainting
+            window_size: SWPO window size in pixels
+            overlap_ratio: SWPO overlap ratio between windows
             
         Returns:
             Parameters dictionary
@@ -412,6 +427,11 @@ class GenerateCommand:
         # Add quality mode
         params['quality_mode'] = quality_mode
         params['no_tiled_refinement'] = no_tiled_refinement
+        
+        # Add SWPO parameters
+        params['swpo'] = swpo
+        params['window_size'] = window_size
+        params['overlap_ratio'] = overlap_ratio
         
         return params
         

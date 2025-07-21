@@ -99,3 +99,28 @@ resolution:
       first_step: 1.4           # REDUCED from default 2.0
       middle_steps: 1.25        # REDUCED from default 1.5
       final_step: 1.15          # REDUCED from default 1.3
+
+  # Sliding Window Progressive Outpainting (SWPO)
+  sliding_window:
+    enabled: true
+    window_size: 200           # Pixels to expand per step
+    overlap_ratio: 0.8         # 80% overlap between windows
+    min_window_size: 100       # Minimum expansion per step
+    max_window_size: 300       # Maximum expansion per step
+    
+    # Quality settings for SWPO
+    denoising_strength: 0.95   # High strength for content generation
+    guidance_scale: 7.5        # Consistent guidance
+    inference_steps: 60        # Steps per window
+    
+    # Blending settings
+    edge_blur_width: 20        # Narrow blur for precise transitions
+    blend_mode: "linear"       # linear, cosine, or gaussian
+    
+    # Memory optimization
+    clear_cache_every_n_windows: 5  # Clear CUDA cache periodically
+    save_intermediate_windows: false # Debug option
+    
+    # Final unification pass
+    final_unification_pass: true
+    unification_strength: 0.15  # Light refinement strength

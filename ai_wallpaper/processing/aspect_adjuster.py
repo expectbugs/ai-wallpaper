@@ -45,11 +45,11 @@ class AspectAdjuster:
                 )
         
         # Load configuration
-        aspect_config = self.config.resolution.get('aspect_adjustment', {})
+        aspect_config = self.config.get('resolution', {}).get('aspect_adjustment', {})
         self.enabled = aspect_config.get('enabled', True)
         
         # Progressive outpainting config
-        prog_config = self.config.resolution.get('progressive_outpainting', {})
+        prog_config = self.config.get('resolution', {}).get('progressive_outpainting', {})
         self.prog_enabled = prog_config.get('enabled', True)
         self.thresholds = prog_config.get('aspect_ratio_thresholds', {})
         self.max_supported = self.thresholds.get('max_supported', 8.0)
@@ -185,9 +185,16 @@ class AspectAdjuster:
         
         # Use progressive strategy if needed
         if progressive_steps:
-            return self._progressive_adjust(
-                image_path, original_prompt, progressive_steps, save_intermediates
-            )
+            # Check if these are SWPO steps
+            if progressive_steps and progressive_steps[0].get('method') == 'sliding_window':
+                return self._sliding_window_adjust(
+                    image_path, original_prompt, progressive_steps, save_intermediates
+                )
+            else:
+                # Original progressive adjust
+                return self._progressive_adjust(
+                    image_path, original_prompt, progressive_steps, save_intermediates
+                )
         else:
             # Single-step for small changes
             return self._single_step_adjust(
@@ -261,6 +268,255 @@ class AspectAdjuster:
         
         self.logger.info(f"Progressive adjustment complete: {total_steps} steps")
         return current_path
+    
+    def _sliding_window_adjust(self,
+                              image_path: Path,
+                              prompt: str,
+                              steps: List[Dict],
+                              save_intermediates: bool = False) -> Path:
+        """
+        Perform sliding window adjustment with maximum context preservation.
+        Each window overlaps significantly with previous content.
+        NO ERROR TOLERANCE - FAIL LOUD
+        """
+        current_path = image_path
+        swpo_config = self.config.get('resolution', {}).get('progressive_outpainting', {}).get('sliding_window', {})
+        
+        # SWPO-specific settings
+        denoising_strength = swpo_config.get('denoising_strength', 0.95)
+        edge_blur = swpo_config.get('edge_blur_width', 20)
+        clear_cache_interval = swpo_config.get('clear_cache_every_n_windows', 5)
+        
+        self.logger.info(f"Starting SWPO adjustment: {len(steps)} windows")
+        
+        # Track accumulated expansions for proper mask positioning
+        accumulated_horizontal = 0
+        accumulated_vertical = 0
+        original_w, original_h = Image.open(image_path).size
+        
+        for i, step in enumerate(steps):
+            window_num = i + 1
+            self.logger.log_stage(
+                f"SWPO Window {window_num}/{len(steps)}", 
+                step['description']
+            )
+            
+            # Clear CUDA cache periodically to prevent OOM
+            if window_num % clear_cache_interval == 0:
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    self.logger.info("Cleared CUDA cache")
+            
+            # Execute sliding window expansion
+            current_path = self._execute_sliding_window(
+                current_path, 
+                prompt, 
+                step,
+                denoising_strength,
+                edge_blur,
+                accumulated_horizontal,
+                accumulated_vertical,
+                original_w,
+                original_h
+            )
+            
+            # Update accumulated expansions
+            if step['direction'] == 'horizontal':
+                accumulated_horizontal += (step['target_size'][0] - step['current_size'][0]) - step.get('overlap_size', 0)
+            else:
+                accumulated_vertical += (step['target_size'][1] - step['current_size'][1]) - step.get('overlap_size', 0)
+            
+            # Save intermediate if requested (--save-stages support)
+            if save_intermediates:
+                self._save_swpo_stage(
+                    current_path, 
+                    f"swpo_window_{window_num}",
+                    step['target_size'],
+                    step['description']
+                )
+            
+            # Validate result
+            if not current_path.exists():
+                raise RuntimeError(f"Window {window_num} failed to produce output")
+        
+        self.logger.info(f"SWPO adjustment complete: {len(steps)} windows processed")
+        
+        # Optional: Final unification pass
+        if swpo_config.get('final_unification_pass', True):
+            self.logger.info("Performing final unification pass")
+            
+            # Load the result
+            final_image = Image.open(current_path)
+            
+            # Very light refinement pass on the full image
+            unification_strength = swpo_config.get('unification_strength', 0.15)
+            
+            result = self.pipeline(
+                prompt=prompt + ", perfectly unified and seamless composition",
+                image=final_image,
+                strength=unification_strength,
+                num_inference_steps=40,
+                guidance_scale=7.0,
+                width=final_image.width,
+                height=final_image.height
+            ).images[0]
+            
+            # Save unified result
+            unified_path = current_path.parent / f"unified_{current_path.name}"
+            from ..utils import save_lossless_png
+            save_lossless_png(result, unified_path)
+            current_path = unified_path
+            
+            # Save unification stage if requested (--save-stages support)
+            if save_intermediates:
+                self._save_swpo_stage(
+                    current_path,
+                    "swpo_final_unification",
+                    (final_image.width, final_image.height),
+                    "Final unification pass"
+                )
+        
+        return current_path
+    
+    def _execute_sliding_window(self,
+                               image_path: Path,
+                               prompt: str,
+                               step_info: Dict,
+                               denoising_strength: float,
+                               edge_blur: int,
+                               accumulated_h: int,
+                               accumulated_v: int,
+                               original_w: int,
+                               original_h: int) -> Path:
+        """
+        Execute a single sliding window expansion.
+        Critical: Mask positioning must account for accumulated expansions.
+        """
+        # Load current image
+        image = Image.open(image_path)
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        current_w, current_h = step_info['current_size']
+        target_w, target_h = step_info['target_size']
+        window_size = step_info['window_size']
+        overlap_size = step_info.get('overlap_size', 0)
+        direction = step_info['direction']
+        
+        # Create canvas at target size
+        canvas = Image.new('RGB', (target_w, target_h), color='gray')
+        mask = Image.new('L', (target_w, target_h), color='black')
+        
+        # Position existing image
+        if direction == 'horizontal':
+            # For horizontal expansion, image stays at left
+            canvas.paste(image, (0, 0))
+            
+            # Critical: Mask only the NEW area being generated
+            # Account for overlap from previous windows
+            mask_start = current_w - overlap_size
+            mask_end = target_w
+            
+            # Create gradient mask for smooth blending
+            mask_array = np.zeros((target_h, target_w), dtype=np.uint8)
+            mask_array[:, mask_start:mask_end] = 255
+            
+            # Apply edge blur to blend with existing content
+            if edge_blur > 0 and overlap_size > 0:
+                for x in range(max(0, mask_start - edge_blur), min(mask_start + edge_blur, target_w)):
+                    if 0 <= x < target_w:
+                        weight = (x - (mask_start - edge_blur)) / (2 * edge_blur)
+                        weight = np.clip(weight, 0, 1)
+                        mask_array[:, x] = int(weight * 255)
+        else:
+            # For vertical expansion, image stays at top
+            canvas.paste(image, (0, 0))
+            
+            mask_start = current_h - overlap_size
+            mask_end = target_h
+            
+            mask_array = np.zeros((target_h, target_w), dtype=np.uint8)
+            mask_array[mask_start:mask_end, :] = 255
+            
+            if edge_blur > 0 and overlap_size > 0:
+                for y in range(max(0, mask_start - edge_blur), min(mask_start + edge_blur, target_h)):
+                    if 0 <= y < target_h:
+                        weight = (y - (mask_start - edge_blur)) / (2 * edge_blur)
+                        weight = np.clip(weight, 0, 1)
+                        mask_array[y, :] = int(weight * 255)
+        
+        mask = Image.fromarray(mask_array, mode='L')
+        
+        # Add noise to masked areas for better generation
+        canvas_array = np.array(canvas)
+        mask_bool = mask_array > 128
+        noise = np.random.randint(20, 60, size=canvas_array.shape, dtype=np.uint8)
+        for c in range(3):
+            canvas_array[:, :, c][mask_bool] = noise[:, :, c][mask_bool]
+        canvas = Image.fromarray(canvas_array)
+        
+        # Enhanced prompt for window context
+        window_prompt = f"{prompt}, seamlessly continuing the existing content"
+        if direction == 'horizontal':
+            window_prompt += ", extending naturally to the right"
+        else:
+            window_prompt += ", extending naturally downward"
+        
+        # Log window details
+        self.logger.info(
+            f"SWPO window: {current_w}x{current_h} → {target_w}x{target_h} "
+            f"(+{window_size}px, {overlap_size}px overlap)"
+        )
+        
+        # Execute inpainting
+        result = self.pipeline(
+            prompt=window_prompt,
+            image=canvas,
+            mask_image=mask,
+            strength=denoising_strength,
+            num_inference_steps=self.base_steps,
+            guidance_scale=self.pipeline.guidance_scale if hasattr(self.pipeline, 'guidance_scale') else 7.5,
+            width=target_w,
+            height=target_h
+        ).images[0]
+        
+        # Save result
+        temp_dir = self.resolver.get_temp_dir() / 'ai-wallpaper' / 'swpo'
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+        filename = f"swpo_{direction}_{current_w}x{current_h}_to_{target_w}x{target_h}_{timestamp}.png"
+        save_path = temp_dir / filename
+        
+        # Save with lossless compression
+        from ..utils import save_lossless_png
+        save_lossless_png(result, save_path)
+        
+        return save_path
+    
+    def _save_swpo_stage(self, 
+                         image_path: Path,
+                         stage_name: str,
+                         size: Tuple[int, int],
+                         description: str):
+        """
+        Save intermediate SWPO stage for debugging/visualization
+        Follows the same pattern as other stage saves in the pipeline
+        """
+        # Get the stage directory from the model metadata
+        if hasattr(self, 'model_metadata') and self.model_metadata:
+            stage_dir = self.model_metadata.get('stage_dir')
+            if stage_dir:
+                stage_dir = Path(stage_dir)
+                stage_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Copy the image to stage directory with descriptive name
+                stage_filename = f"{stage_name}_{size[0]}x{size[1]}.png"
+                stage_path = stage_dir / stage_filename
+                
+                import shutil
+                shutil.copy2(image_path, stage_path)
+                self.logger.info(f"Saved SWPO stage: {stage_filename} - {description}")
     
     def _execute_outpaint_step(self,
                               image_path: Path,

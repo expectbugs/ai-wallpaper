@@ -19,7 +19,7 @@ CONTEXT_SETTINGS = dict(
 )
 
 @click.group(context_settings=CONTEXT_SETTINGS, invoke_without_command=True)
-@click.version_option(version='4.5.3', prog_name='AI Wallpaper Generator')
+@click.version_option(version='4.5.4', prog_name='AI Wallpaper Generator')
 @click.option('--config', type=click.Path(), help='Custom config directory')
 @click.option('--verbose', is_flag=True, help='Enable verbose output')
 @click.option('--dry-run', is_flag=True, help='Show plan without executing')
@@ -59,9 +59,16 @@ def cli(ctx, config, verbose, dry_run):
               default='balanced', help='Quality mode - ultimate takes longer but maximizes quality')
 @click.option('--no-tiled-refinement', is_flag=True,
               help='Disable tiled refinement pass (faster but lower quality)')
+@click.option('--swpo/--no-swpo', default=None,
+              help='Enable/disable Sliding Window Progressive Outpainting for extreme aspect ratios')
+@click.option('--window-size', type=int, default=200,
+              help='Window size for SWPO (default: 200 pixels)')
+@click.option('--overlap-ratio', type=float, default=0.8,
+              help='Overlap ratio for SWPO windows (default: 0.8)')
 @click.pass_context
 def generate(ctx, prompt, theme, model, random_model, random_params, seed, 
-            no_upscale, no_wallpaper, save_stages, output, resolution, quality_mode, no_tiled_refinement):
+            no_upscale, no_wallpaper, save_stages, output, resolution, quality_mode, no_tiled_refinement,
+            swpo, window_size, overlap_ratio):
     """Generate a new AI wallpaper
     
     This is the main command that generates a wallpaper using the selected model
@@ -96,7 +103,10 @@ def generate(ctx, prompt, theme, model, random_model, random_params, seed,
             output_path=output,
             resolution=resolution,
             quality_mode=quality_mode,
-            no_tiled_refinement=no_tiled_refinement
+            no_tiled_refinement=no_tiled_refinement,
+            swpo=swpo,
+            window_size=window_size,
+            overlap_ratio=overlap_ratio
         )
         
         # Display result

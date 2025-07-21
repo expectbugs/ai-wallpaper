@@ -1,5 +1,45 @@
 # Changelog
 
+## [4.5.4] - 2025-07-21 - Sliding Window Progressive Outpainting (SWPO)
+
+### 🎯 Major Feature - SWPO Implementation
+- **Revolutionary Outpainting Method**: Replaced large expansion steps with sliding windows
+  - 200px windows with 80% overlap for maximum context preservation
+  - Eliminates visible seams in extreme aspect ratio expansions
+  - Each window sees mostly existing content, ensuring perfect continuity
+  - Supports expansions up to 8x aspect ratio change
+
+### ✨ SWPO Features
+- **Configurable Parameters**:
+  - Window size: 100-300px (default: 200px)
+  - Overlap ratio: 0.0-1.0 (default: 0.8)
+  - Automatic CUDA cache clearing every 5 windows
+  - Optional final unification pass for seamless results
+
+- **CLI Integration**:
+  - `--swpo/--no-swpo`: Enable/disable SWPO
+  - `--window-size`: Set window size in pixels
+  - `--overlap-ratio`: Set overlap between windows
+  - CLI parameters override configuration file settings
+
+### 🔧 Technical Implementation
+- **Smart Strategy Calculator**: Automatically plans optimal window progression
+- **Gradient Masking**: Smooth transitions between windows with edge blur
+- **Memory Management**: Periodic CUDA cache clearing prevents OOM errors
+- **Stage Saving**: Full support for `--save-stages` to visualize each window
+- **Automatic Fallback**: Seamlessly falls back to original method when disabled
+
+### 📊 Performance Impact
+- **Old Method**: 1344x768 → 5376x768 in 3 large steps (visible seams)
+- **SWPO Method**: Same expansion in ~20 small windows (seamless result)
+- **Generation Time**: Linear with expansion size (more windows = more time)
+- **Quality**: Dramatically improved for extreme aspect ratios
+
+### 🐛 Bug Fixes
+- Fixed config access using dictionary notation instead of attribute access
+- Ensured CLI parameters properly flow through to SDXL model
+- Added proper None checking for CLI override logic
+
 ## [4.5.3] - 2025-07-20 - Comprehensive Fail-Loud Refactor
 
 ### 🚨 Major Refactoring - Fail-Loud Philosophy Implementation
