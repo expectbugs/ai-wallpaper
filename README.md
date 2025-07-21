@@ -1,17 +1,18 @@
-# AI Wallpaper Generator
+# AI Wallpaper Generator v4.5.4
 
-Ultra-high-quality wallpaper generation at any resolution using AI models with weather integration and automated scheduling.
+High-quality wallpaper generation using AI models with weather integration and automated scheduling.
 
 ## Features
 
 - **Multiple AI Models**: FLUX.1-dev, DALL-E 3, GPT-Image-1, SDXL with Juggernaut XL v9 + 8 LoRAs
-- **NO RESOLUTION LIMITS**: Generate at ANY resolution - 16K+, extreme ultrawide, any aspect ratio
-- **Dynamic Resolution Support**: Intelligent VRAM-based strategy selection with automatic fallbacks
-- **Resolution Presets**: 1080p to 8K, ultrawide, portrait, and unlimited custom dimensions
-- **Quality Modes**: Fast, balanced, and ultimate quality with seamless tiled refinement
-- **Weather Integration**: Real-time weather data influences artistic themes and moods
-- **Theme System**: 60+ curated themes across 10 categories with chaos mode
-- **Smart Prompting**: DeepSeek-r1:14b generates creative, contextual prompts
+- **Extreme Resolution Support**: Generate at 16K+, ultrawide, any aspect ratio
+- **Sliding Window Progressive Outpainting (SWPO)**: Seamless expansion for extreme aspect ratios
+- **Dynamic Resolution Support**: VRAM-based strategy selection with automatic fallbacks
+- **Resolution Presets**: 1080p to 8K, ultrawide, portrait, and custom dimensions
+- **Quality Modes**: Fast, balanced, and ultimate quality with tiled refinement
+- **Weather Integration**: Real-time weather data influences artistic themes
+- **Theme System**: 60+ curated themes across 10 categories
+- **Smart Prompting**: DeepSeek-r1:14b generates contextual prompts
 - **Automated Scheduling**: Cron integration for daily wallpaper changes
 - **Desktop Integration**: XFCE4 multi-monitor/workspace support
 
@@ -87,8 +88,12 @@ Ultra-high-quality wallpaper generation at any resolution using AI models with w
 ./ai-wallpaper generate --no-tiled-refinement
 ```
 
-### Other Options
+### Advanced Options
 ```bash
+# Sliding Window Progressive Outpainting (for extreme aspect ratios)
+./ai-wallpaper generate --resolution 21600x2160 --swpo
+./ai-wallpaper generate --swpo --window-size 300 --overlap-ratio 0.7
+
 # Save intermediate stages
 ./ai-wallpaper generate --save-stages
 

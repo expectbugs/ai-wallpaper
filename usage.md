@@ -1,6 +1,6 @@
-# AI Wallpaper Generator - Usage Guide
+# AI Wallpaper Generator v4.5.4 - Usage Guide
 
-Ultra-high-quality wallpaper generation at any resolution using AI models with weather integration.
+High-quality wallpaper generation using AI models with weather integration.
 
 ## 🚀 Quick Start
 
@@ -31,8 +31,13 @@ Ultra-high-quality wallpaper generation at any resolution using AI models with w
 - `--resolution TEXT` - Target resolution as WIDTHxHEIGHT or preset name
   - **Presets**: `1080p`, `1440p`, `4K`, `5K`, `8K`, `ultrawide_4K`, `ultrawide_1440p`, `portrait_4K`, `square_4K`
   - **Custom**: `3840x2160`, `5760x1080`, `2160x3840`, etc.
-  - **NO LIMITS**: System can handle ANY resolution (16K+, extreme ultrawide, etc.)
-  - **Extreme Examples**: `5140x600`, `7680x1080`, `15360x8640`
+  - **Extreme Support**: 16K+, extreme ultrawide, any aspect ratio
+  - **Examples**: `5140x600`, `7680x1080`, `15360x8640`
+
+### SWPO Options (Sliding Window Progressive Outpainting)
+- `--swpo/--no-swpo` - Enable/disable SWPO for extreme aspect ratios
+- `--window-size INTEGER` - Window size for SWPO (default: 200 pixels)
+- `--overlap-ratio FLOAT` - Overlap ratio for SWPO windows (default: 0.8)
 
 ### Quality Settings
 - `--quality-mode [fast|balanced|ultimate]` - Quality mode (default: balanced)
@@ -120,6 +125,18 @@ Ultra-high-quality wallpaper generation at any resolution using AI models with w
 
 # Generate without setting wallpaper
 ./ai-wallpaper generate --no-wallpaper
+```
+
+### SWPO Examples (Extreme Aspect Ratios)
+```bash
+# Enable SWPO for extreme ultrawide (10:1 aspect ratio)
+./ai-wallpaper generate --resolution 21600x2160 --swpo
+
+# Custom SWPO settings for faster generation
+./ai-wallpaper generate --resolution 10240x1080 --swpo --window-size 300 --overlap-ratio 0.7
+
+# Disable SWPO to use original method
+./ai-wallpaper generate --resolution 5376x768 --no-swpo
 ```
 
 ### Advanced Options
@@ -215,19 +232,21 @@ crontab -e
 
 Time varies by model and target resolution. Higher resolutions take longer but produce superior results.
 
-## 🚀 Advanced Features (v4.5.0+)
+## 🚀 Advanced Features (v4.5.4)
 
 ### Extreme Resolution Support
-- **NO SIZE LIMITS**: Generate at ANY resolution without restrictions
-- **Progressive Outpainting**: Seamlessly expands to extreme aspect ratios (up to 8x)
+- **Extreme Resolutions**: Generate at 16K+, ultrawide, any aspect ratio
+- **SWPO**: Sliding Window Progressive Outpainting for seamless extreme expansions
+  - 200px windows with 80% overlap (configurable)
+  - Maintains context throughout expansion
+  - No visible seams even at extreme ratios
 - **VRAM Management**: Automatic strategy selection:
   - Full refinement for images that fit in VRAM
   - Tiled refinement with adaptive tile sizing
-  - CPU offload for 16K+ resolutions
-- **Seamless Expansion**: No visible seams even at extreme ratios like 5140x600
+  - Smart memory management for large images
 
 ### Quality Enhancements
-- **Consistent Denoising**: All stages use full 80-step generation
+- **Consistent Denoising**: All stages use 60-80 step generation
 - **Adaptive Refinement**: Stronger refinement after extreme aspect adjustments
-- **Smart Blur Scaling**: Transition zones scale with expansion size (25% of new content)
-- **Pipeline Optimization**: Generate → Aspect Adjust → Refine → Upscale order prevents seams
+- **Smart Blur Scaling**: Transition zones scale with expansion size
+- **Pipeline Optimization**: Generate → Aspect Adjust → Refine → Upscale order

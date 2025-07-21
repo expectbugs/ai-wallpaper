@@ -1,8 +1,8 @@
-# AI Wallpaper Project - Critical Context for Claude
+# AI Wallpaper Project - Critical Context
 
-This is a project that generates a beautiful, ultra-high quality 4K desktop background every morning using advanced supersampling techniques.
+This project generates high-quality desktop wallpapers using multiple AI models with weather integration.
 
-It retrieves the weather and a random theme or themes and then uses deepseek-r1:14b via ollama to come up with a unique image prompt tailored to the chosen image model, incorporating local weather theme and date contexts for a beautiful, sometimes surreal, imaginative, amazing background.
+It retrieves weather data and selects random themes, then uses deepseek-r1:14b via ollama to generate contextual prompts for the chosen image model.
 
 ## Hardware Specifications
 
@@ -20,7 +20,7 @@ Remember, NO SILENT FAILURES. All errors should be loud and proud. Every part of
 
 Also remember, it does not matter how long it takes, or how much space it uses, the only priority in this project is amazing, incredibly detailed, ultimate high quality images.
 
-## 🔧 Current Pipeline Architecture (v4.5.2)
+## 🔧 Current Pipeline Architecture (v4.5.4)
 
 ### Stage 1: Base Generation
 - SDXL at optimal resolution (typically 1344x768)
@@ -43,20 +43,21 @@ Also remember, it does not matter how long it takes, or how much space it uses, 
 - Progressive Real-ESRGAN 2x steps
 - Lossless PNG throughout (compress_level=0)
 
-## ⚠️ Current Challenge: Seam Visibility
+## ✅ SWPO Implementation (v4.5.4)
 
-**Problem**: Visible seams in extreme aspect ratio expansions
-**Root Cause**: Large expansion steps (2x, 1.5x) lose too much context
-**Current Mitigation**: 
-- Multi-pass outpainting with decreasing strength
-- Edge color pre-filling
-- Massive blur zones (120+ pixels)
-- Denoising strength: 0.95 (critical - lower values only produce colors)
+**Previous Problem**: Visible seams in extreme aspect ratio expansions
+**Solution Implemented**: Sliding Window Progressive Outpainting (SWPO)
+- 200px windows with 80% overlap (configurable)
+- Maintains context throughout expansion
+- All dimensions rounded to multiples of 8 for SDXL compatibility
+- Optional final unification pass for seamless results
 
-**Planned Solution**: Sliding Window Progressive Outpainting (SWPO)
-- 200px windows with 80% overlap
-- Maintains context throughout
-- See plan1.md for implementation details
+**Usage**:
+```bash
+./ai-wallpaper generate --resolution 21600x2160 --swpo
+./ai-wallpaper generate --swpo --window-size 300 --overlap-ratio 0.7
+./ai-wallpaper generate --resolution 5376x768 --no-swpo  # Use original method
+```
 
 ## 📁 Key Files & Their Roles
 
@@ -78,14 +79,17 @@ Also remember, it does not matter how long it takes, or how much space it uses, 
 
 ```bash
 # Visualize all stages
-./generate.py --save-stages
+./ai-wallpaper generate --save-stages
 
-# Check seam locations
+# Check metadata in saved JSON files
 # Look for generation_metadata['progressive_boundaries']
 # and generation_metadata['seam_details']
 
-# Force specific resolution
-./generate.py --resolution 5376x768
+# Test specific resolution
+./ai-wallpaper generate --resolution 5376x768
+
+# Test SWPO with stages
+./ai-wallpaper generate --resolution 21600x2160 --swpo --save-stages
 ```
 
 ## 🎯 Remember the Goals
