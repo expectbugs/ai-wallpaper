@@ -237,15 +237,37 @@ class SdxlModel(BaseImageModel):
                 if use_swpo:
                     # Calculate sliding window steps
                     self.logger.info("Using Sliding Window Progressive Outpainting (SWPO)")
+                    # Get target dimensions from params
+                    if 'target_resolution' in params:
+                        target_width, target_height = params['target_resolution']
+                    elif 'generation_size' in params:
+                        target_width, target_height = params['generation_size']
+                    else:
+                        # Default to 4K if not specified
+                        target_width, target_height = 3840, 2160
+                    
                     progressive_steps = self.resolution_manager.calculate_sliding_window_strategy(
                         current_size=(current_image.width, current_image.height),
-                        target_size=(sdxl_params['width'], sdxl_params['height']),
+                        target_size=(target_width, target_height),
                         window_size=params.get('window_size', swpo_config.get('window_size', 200)),
                         overlap_ratio=params.get('overlap_ratio', swpo_config.get('overlap_ratio', 0.8))
                     )
                 else:
                     # Fall back to original progressive strategy
-                    target_aspect = sdxl_params['width'] / sdxl_params['height']
+                    if 'target_aspect' in params:
+                        target_aspect = params['target_aspect']
+                    else:
+                        # Calculate from target resolution
+                        if 'target_resolution' in params:
+                            target_width, target_height = params['target_resolution']
+                            target_aspect = target_width / target_height
+                        elif 'generation_size' in params:
+                            target_width, target_height = params['generation_size']
+                            target_aspect = target_width / target_height
+                        else:
+                            # Default aspect ratio
+                            target_aspect = 16 / 9
+                    
                     progressive_steps = self.resolution_manager.calculate_progressive_outpaint_strategy(
                         current_size=(current_image.width, current_image.height),
                         target_aspect=target_aspect
