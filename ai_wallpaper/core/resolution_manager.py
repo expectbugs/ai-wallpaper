@@ -410,6 +410,10 @@ class ResolutionManager:
         
         return steps
     
+    def _round_to_multiple_of_8(self, value: int) -> int:
+        """Round value to nearest multiple of 8 for SDXL compatibility"""
+        return ((value + 4) // 8) * 8
+    
     def calculate_sliding_window_strategy(self,
                                         current_size: Tuple[int, int],
                                         target_size: Tuple[int, int],
@@ -474,6 +478,9 @@ class ResolutionManager:
                 # Ensure we reach exactly target_w on last step
                 if target_w - next_w < step_size:
                     next_w = target_w
+                else:
+                    # Round to multiple of 8 for SDXL compatibility
+                    next_w = self._round_to_multiple_of_8(next_w)
                 
                 steps.append({
                     "method": "sliding_window",
@@ -486,7 +493,9 @@ class ResolutionManager:
                     "description": f"H-Window {window_num}: {temp_w}x{temp_h} → {next_w}x{temp_h} (+{next_w-temp_w}px)"
                 })
                 
-                temp_w = temp_w + step_size  # Move by step size, not window size
+                # Calculate actual step taken (accounts for rounding)
+                actual_step = next_w - temp_w - overlap_size if window_num > 1 else next_w - temp_w
+                temp_w = temp_w + actual_step
                 window_num += 1
         
         if need_vertical:
@@ -500,6 +509,9 @@ class ResolutionManager:
                 
                 if target_h - next_h < step_size:
                     next_h = target_h
+                else:
+                    # Round to multiple of 8 for SDXL compatibility
+                    next_h = self._round_to_multiple_of_8(next_h)
                 
                 steps.append({
                     "method": "sliding_window",
@@ -512,7 +524,9 @@ class ResolutionManager:
                     "description": f"V-Window {window_num}: {temp_w}x{temp_h} → {temp_w}x{next_h} (+{next_h-temp_h}px)"
                 })
                 
-                temp_h = temp_h + step_size
+                # Calculate actual step taken (accounts for rounding)
+                actual_step = next_h - temp_h - overlap_size if window_num > 1 else next_h - temp_h
+                temp_h = temp_h + actual_step
                 window_num += 1
         
         self.logger.info(
