@@ -494,7 +494,13 @@ class ResolutionManager:
                 })
                 
                 # Calculate actual step taken (accounts for rounding)
-                actual_step = next_w - temp_w - overlap_size if window_num > 1 else next_w - temp_w
+                # For first window, step is the full window size
+                # For subsequent windows, account for overlap
+                if window_num == 1:
+                    actual_step = next_w - temp_w
+                else:
+                    # Step forward is window size minus overlap
+                    actual_step = step_size
                 temp_w = temp_w + actual_step
                 window_num += 1
         
@@ -525,7 +531,13 @@ class ResolutionManager:
                 })
                 
                 # Calculate actual step taken (accounts for rounding)
-                actual_step = next_h - temp_h - overlap_size if window_num > 1 else next_h - temp_h
+                # For first window, step is the full window size
+                # For subsequent windows, account for overlap
+                if window_num == 1:
+                    actual_step = next_h - temp_h
+                else:
+                    # Step forward is window size minus overlap
+                    actual_step = step_size
                 temp_h = temp_h + actual_step
                 window_num += 1
         
