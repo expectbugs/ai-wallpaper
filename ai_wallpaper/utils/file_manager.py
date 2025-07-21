@@ -38,7 +38,7 @@ class FileManager:
         ]
         
         for directory in directories:
-            path = Path(directory).expanduser()
+            path = Path(directory)
             if not path.exists():
                 path.mkdir(parents=True, exist_ok=True)
                 self.logger.debug(f"Created directory: {path}")
@@ -49,7 +49,7 @@ class FileManager:
         Returns:
             Path to images directory
         """
-        return Path(self.config.paths.get('images_dir', '/home/user/ai-wallpaper/images')).expanduser()
+        return Path(self.config.paths.get('images_dir', '/home/user/ai-wallpaper/images'))
         
     def get_logs_dir(self) -> Path:
         """Get logs directory path
@@ -57,7 +57,7 @@ class FileManager:
         Returns:
             Path to logs directory
         """
-        return Path(self.config.paths.get('logs_dir', '/home/user/ai-wallpaper/logs')).expanduser()
+        return Path(self.config.paths.get('logs_dir', '/home/user/ai-wallpaper/logs'))
         
     def get_cache_dir(self) -> Path:
         """Get cache directory path
@@ -65,7 +65,7 @@ class FileManager:
         Returns:
             Path to cache directory
         """
-        return Path(self.config.paths.get('cache_dir', '/home/user/ai-wallpaper/.cache')).expanduser()
+        return Path(self.config.paths.get('cache_dir', '/home/user/ai-wallpaper/.cache'))
         
     def create_image_path(
         self,

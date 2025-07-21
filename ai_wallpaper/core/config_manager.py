@@ -408,16 +408,16 @@ class ConfigManager:
         return None
         
     def _expand_env_vars(self, config: Any) -> Any:
-        """Expand ${VAR} patterns in config values
+        """Expand ${VAR} patterns and ~ in config values
         
         Args:
             config: Configuration to expand
             
         Returns:
-            Config with expanded environment variables
+            Config with expanded environment variables and paths
         """
         if isinstance(config, str):
-            # Find ${VAR} patterns
+            # First expand ${VAR} patterns
             pattern = r'\$\{([^}]+)\}'
             
             def replacer(match):
@@ -426,7 +426,13 @@ class ConfigManager:
                 # For API keys, return empty string if not set - models will check when needed
                 return var_value
             
-            return re.sub(pattern, replacer, config)
+            expanded = re.sub(pattern, replacer, config)
+            
+            # Then expand tilde (~) if present
+            if '~' in expanded:
+                expanded = os.path.expanduser(expanded)
+            
+            return expanded
         elif isinstance(config, dict):
             return {k: self._expand_env_vars(v) for k, v in config.items()}
         elif isinstance(config, list):
