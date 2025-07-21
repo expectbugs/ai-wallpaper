@@ -229,7 +229,8 @@ class SdxlModel(BaseImageModel):
                 target_aspect = params.get('target_aspect')
                 
                 # Check if SWPO is enabled (CLI override takes precedence)
-                swpo_config = self.config.get('resolution', {}).get('progressive_outpainting', {}).get('sliding_window', {})
+                resolution_config = self.config.resolution if hasattr(self.config, 'resolution') else self.config.get('resolution', {})
+                swpo_config = resolution_config.get('progressive_outpainting', {}).get('sliding_window', {})
                 # If swpo is None (not specified in CLI), use config value
                 cli_swpo = params.get('swpo')
                 use_swpo = cli_swpo if cli_swpo is not None else swpo_config.get('enabled', True)
@@ -461,7 +462,8 @@ class SdxlModel(BaseImageModel):
             
             # ============ STAGE 2.5: Tiled Ultra-Refinement (Optional) ============
             stage2_5_result = None
-            tiled_refinement = self.config.get('resolution', {}).get('tiled_refinement', {})
+            resolution_config = self.config.resolution if hasattr(self.config, 'resolution') else self.config.get('resolution', {})
+            tiled_refinement = resolution_config.get('tiled_refinement', {})
             
             if (tiled_refinement.get('enabled', False) and 
                 params.get('quality_mode') == 'ultimate' and

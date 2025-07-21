@@ -45,11 +45,13 @@ class AspectAdjuster:
                 )
         
         # Load configuration
-        aspect_config = self.config.get('resolution', {}).get('aspect_adjustment', {})
+        # ConfigManager has resolution as an attribute, not a dict key
+        resolution_config = self.config.resolution if hasattr(self.config, 'resolution') else {}
+        aspect_config = resolution_config.get('aspect_adjustment', {})
         self.enabled = aspect_config.get('enabled', True)
         
         # Progressive outpainting config
-        prog_config = self.config.get('resolution', {}).get('progressive_outpainting', {})
+        prog_config = resolution_config.get('progressive_outpainting', {})
         self.prog_enabled = prog_config.get('enabled', True)
         self.thresholds = prog_config.get('aspect_ratio_thresholds', {})
         self.max_supported = self.thresholds.get('max_supported', 8.0)
@@ -280,7 +282,8 @@ class AspectAdjuster:
         NO ERROR TOLERANCE - FAIL LOUD
         """
         current_path = image_path
-        swpo_config = self.config.get('resolution', {}).get('progressive_outpainting', {}).get('sliding_window', {})
+        resolution_config = self.config.resolution if hasattr(self.config, 'resolution') else {}
+        swpo_config = resolution_config.get('progressive_outpainting', {}).get('sliding_window', {})
         
         # SWPO-specific settings
         denoising_strength = swpo_config.get('denoising_strength', 0.95)
