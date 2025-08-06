@@ -121,6 +121,22 @@ class GenerateCommand:
             self.logger.log_stage("Step 6/7", "Generating image")
             result = model_instance.generate(prompt, seed=seed, **params)
             
+            # Handle custom output path if specified
+            if output_path:
+                import shutil
+                
+                output_path = Path(output_path).expanduser().resolve()
+                
+                # Create output directory if it doesn't exist
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Copy the generated image to the custom path
+                shutil.copy2(result['image_path'], output_path)
+                self.logger.info(f"Copied image to custom output path: {output_path}")
+                
+                # Update the result to reflect the new path
+                result['image_path'] = str(output_path)
+            
             # Step 7: Set wallpaper if requested
             if not no_wallpaper:
                 self.logger.log_stage("Step 7/7", "Setting wallpaper")

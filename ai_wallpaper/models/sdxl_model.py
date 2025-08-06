@@ -472,6 +472,7 @@ class SdxlModel(BaseImageModel):
             tiled_refinement = resolution_config.get('tiled_refinement', {})
             
             if (tiled_refinement.get('enabled', False) and 
+                not params.get('no_tiled_refinement', False) and
                 params.get('quality_mode') == 'ultimate' and
                 current_image.size[0] * current_image.size[1] > 1024 * 1024):
                 
@@ -538,13 +539,27 @@ class SdxlModel(BaseImageModel):
             if params.get('target_resolution'):
                 # Ensure exact target size
                 with Image.open(final_path) as img:
-                    if img.size != tuple(params['target_resolution']):
-                        self.logger.log_stage("Stage 4", "Final size adjustment")
-                        final_path = self._ensure_exact_size(
-                            final_path,
-                            params['target_resolution']
-                        )
-                        temp_files.append(final_path)
+                    current_size = img.size
+                    target_size = tuple(params['target_resolution'])
+                    
+                    if current_size != target_size:
+                        # Check if we need to upscale
+                        needs_upscale = (current_size[0] < target_size[0] or 
+                                       current_size[1] < target_size[1])
+                        
+                        if needs_upscale and params.get('no_upscale', False):
+                            # Skip size adjustment if --no-upscale is specified and target is larger
+                            self.logger.info(
+                                f"Skipping size adjustment: --no-upscale specified and target "
+                                f"{target_size} is larger than current {current_size}"
+                            )
+                        else:
+                            self.logger.log_stage("Stage 4", "Final size adjustment")
+                            final_path = self._ensure_exact_size(
+                                final_path,
+                                params['target_resolution']
+                            )
+                            temp_files.append(final_path)
             
             # Ensure final image is in the proper output directory
             config = get_config()
@@ -1747,6 +1762,58 @@ class SdxlModel(BaseImageModel):
             'time_minutes': 5
         }
     
+    def get_generation_params(self, **kwargs) -> Dict[str, Any]:
+        """Get generation parameters with quality mode support
+        
+        Args:
+            **kwargs: Override parameters
+            
+        Returns:
+            Parameters dictionary with quality mode applied
+        """
+        # Get base parameters from parent
+        params = super().get_generation_params(**kwargs)
+        
+        # Apply quality mode presets
+        quality_mode = kwargs.get('quality_mode', 'balanced')
+        
+        if quality_mode == 'fast':
+            # Fast mode - reduce steps and disable some features
+            if 'steps' not in kwargs:
+                params['steps'] = 50  # Reduced from default 80
+            if 'guidance_scale' not in kwargs:
+                params['guidance_scale'] = 7.0  # Slightly lower guidance
+            # Disable ensemble mode
+            params['use_ensemble'] = False
+            # Use faster scheduler
+            if 'scheduler' not in kwargs:
+                params['scheduler'] = 'DPMSolverMultistepScheduler'
+        elif quality_mode == 'balanced':
+            # Balanced mode - default settings
+            if 'steps' not in kwargs:
+                params['steps'] = 80
+            if 'guidance_scale' not in kwargs:
+                params['guidance_scale'] = 8.0
+        elif quality_mode == 'ultimate':
+            # Ultimate mode - maximum quality settings
+            if 'steps' not in kwargs:
+                params['steps'] = 100  # Maximum steps
+            if 'guidance_scale' not in kwargs:
+                params['guidance_scale'] = 8.5  # Optimal for photorealism
+            # Use best scheduler for quality
+            if 'scheduler' not in kwargs:
+                params['scheduler'] = 'HeunDiscreteScheduler'
+            # Enable ensemble mode (if we re-enable it in the future)
+            params['use_ensemble'] = False  # Still disabled for now
+        
+        # Store quality mode for later use
+        params['quality_mode'] = quality_mode
+        
+        # Pass through tiled refinement control
+        params['no_tiled_refinement'] = kwargs.get('no_tiled_refinement', False)
+        
+        return params
+    
     def _needs_aspect_adjustment(self, params: Dict[str, Any]) -> bool:
         """Check if aspect adjustment is needed"""
         gen_aspect = params.get('generation_aspect')
@@ -1934,11 +2001,11 @@ class SdxlModel(BaseImageModel):
             
             refiner = TiledRefiner(pipeline=refine_pipe)
             
-            # Run tiled refinement
+            # Run tiled refinement with reduced strength to prevent washout
             refined_path = refiner.refine_tiled(
                 image_path=image_path,
                 prompt=prompt,
-                base_strength=0.25,  # Lower strength for tiled
+                base_strength=0.10,  # REDUCED from 0.25 to prevent washout
                 base_steps=40
             )
             

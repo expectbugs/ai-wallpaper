@@ -141,10 +141,24 @@ class VRAMCalculator:
             # Fallback to a reasonable default if somehow total_vram_mb is 0
             pixels_per_mb = 1024 * 1024 / 100  # Assume 100MB per megapixel as fallback
         
-        max_pixels = int((available_mb - self.MODEL_OVERHEAD_MB) * pixels_per_mb * 0.8)
+        # Ensure we have enough VRAM for at least minimal tiling
+        available_for_tiling = available_mb - self.MODEL_OVERHEAD_MB
+        if available_for_tiling <= 0:
+            # Not enough VRAM even for model overhead - fall back to CPU offload
+            return {
+                'strategy': 'cpu_offload',
+                'details': {
+                    'reason': f'Insufficient VRAM: {available_mb:.0f}MB < {self.MODEL_OVERHEAD_MB:.0f}MB overhead',
+                    'warning': 'Using CPU offload - will be slow but will work!'
+                },
+                'vram_required_mb': required_mb,
+                'vram_available_mb': available_mb
+            }
+        
+        max_pixels = int(available_for_tiling * pixels_per_mb * 0.8)
         
         # Tile size (ensure divisible by 128 for SDXL)
-        tile_size = int(max_pixels ** 0.5)
+        tile_size = int(max(0, max_pixels) ** 0.5)  # Ensure non-negative
         tile_size = max(512, ((tile_size // 128) * 128))
         
         # Can we do tiled refinement?

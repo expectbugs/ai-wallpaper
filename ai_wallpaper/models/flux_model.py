@@ -25,6 +25,7 @@ from ..core.exceptions import ModelNotFoundError, ModelLoadError, GenerationErro
 from ..core.path_resolver import get_resolver
 from ..processing import get_upscaler
 from ..utils import get_file_manager
+from .model_resolver import get_model_resolver
 
 class FluxModel(BaseImageModel):
     """FLUX.1-dev implementation with 8K→4K supersampling pipeline"""
@@ -114,51 +115,62 @@ class FluxModel(BaseImageModel):
         Raises:
             ModelNotFoundError: If model not found
         """
-        model_paths = self.config.get('model_path_priority', [])
+        # Get model hints from config
+        model_hints = self.config.get('model_hints', [])
+        if not model_hints:
+            # Fallback to old config key for compatibility
+            model_hints = self.config.get('model_path_priority', [])
         
-        for path in model_paths:
-            path = Path(path).expanduser()
-            
-            if path.exists() and path.is_dir():
-                # Verify it's a valid model directory
-                # FLUX models have various file structures, so just check for key directories
+        # Use ModelResolver to find the model
+        resolver = get_model_resolver()
+        model_path = resolver.find_model(model_hints)
+        
+        if model_path:
+            # Verify it's a valid FLUX model directory
+            if model_path.is_dir():
+                # Check for required FLUX directories
                 required_dirs = ['transformer', 'text_encoder', 'tokenizer']
-                optional_dirs = ['text_encoder_2', 'tokenizer_2', 'vae', 'scheduler']
                 
                 # Check if model_index.json exists
-                if not (path / 'model_index.json').exists():
-                    self.logger.debug(f"No model_index.json found at {path}")
-                    continue
-                
-                # Check for required directories
-                missing_dirs = [d for d in required_dirs if not (path / d).exists()]
-                if missing_dirs:
-                    self.logger.debug(f"Missing required directories: {missing_dirs}")
-                    continue
-                
-                # Check if transformer has any model files (sharded or single)
-                transformer_dir = path / 'transformer'
-                has_model_files = any(
-                    f.name.endswith('.safetensors') or f.name.endswith('.bin')
-                    for f in transformer_dir.iterdir()
-                    if f.is_file() or f.is_symlink()
-                )
-                
-                if has_model_files:
-                    self.logger.info(f"Found valid FLUX model at: {path}")
-                    return str(path)
+                if not (model_path / 'model_index.json').exists():
+                    self.logger.debug(f"No model_index.json found at {model_path}")
                 else:
-                    self.logger.debug(f"No model files found in transformer directory at {path}")
-                    
-        # Fallback to HuggingFace ID
-        if model_paths:
-            hf_id = model_paths[-1]
-            if not Path(hf_id).exists():
+                    # Check for required directories
+                    missing_dirs = [d for d in required_dirs if not (model_path / d).exists()]
+                    if missing_dirs:
+                        self.logger.debug(f"Missing required directories: {missing_dirs}")
+                    else:
+                        # Check if transformer has any model files
+                        transformer_dir = model_path / 'transformer'
+                        if transformer_dir.exists():
+                            has_model_files = any(
+                                f.name.endswith('.safetensors') or f.name.endswith('.bin')
+                                for f in transformer_dir.iterdir()
+                                if f.is_file() or f.is_symlink()
+                            )
+                            
+                            if has_model_files:
+                                self.logger.info(f"Found valid FLUX model at: {model_path}")
+                                return str(model_path)
+                            else:
+                                self.logger.debug(f"No model files found in transformer directory at {model_path}")
+        
+        # If no local model found, try HuggingFace ID
+        if model_hints:
+            # The first hint is usually the HF repo ID
+            hf_id = model_hints[0]
+            if '/' in hf_id:  # Looks like a HF repo ID
                 self.logger.warning("No local model found, will download from HuggingFace")
                 self.logger.warning("This may take 15-30 minutes on first run!")
                 return hf_id
                 
-        raise ModelNotFoundError("FLUX.1-dev", model_paths)
+        # If we get here, no model was found
+        searched_paths = []
+        if resolver.search_paths:
+            for search_path in resolver.search_paths:
+                searched_paths.append(str(search_path))
+                
+        raise ModelNotFoundError("FLUX.1-dev", searched_paths)
         
     def generate(self, prompt: str, seed: Optional[int] = None, **kwargs) -> Dict[str, Any]:
         """Generate image using FLUX pipeline

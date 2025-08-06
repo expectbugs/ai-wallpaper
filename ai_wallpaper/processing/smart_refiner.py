@@ -65,7 +65,7 @@ class SmartQualityRefiner:
             self.logger.info("Single quality enhancement pass")
             
             refined = self._single_quality_pass(
-                current_image, current_path, prompt, seed, temp_files
+                current_image, current_path, prompt, seed, temp_files, params
             )
             
             return {
@@ -94,7 +94,7 @@ class SmartQualityRefiner:
             }
             pass1 = self._execute_pass(
                 current_image, current_path, prompt, seed + 1000,
-                pass1_config, "coherence", temp_files
+                pass1_config, "coherence", temp_files, params
             )
             current_image = pass1['image']
             current_path = pass1['path']
@@ -156,7 +156,7 @@ class SmartQualityRefiner:
             }
             pass3 = self._execute_pass(
                 current_image, current_path, prompt, seed + 3000,
-                pass3_config, "detail", temp_files
+                pass3_config, "detail", temp_files, params
             )
             current_image = pass3['image']
             current_path = pass3['path']
@@ -187,7 +187,7 @@ class SmartQualityRefiner:
                 'passes': passes_done
             }
     
-    def _single_quality_pass(self, image, image_path, prompt, seed, temp_files):
+    def _single_quality_pass(self, image, image_path, prompt, seed, temp_files, params=None):
         """Single quality enhancement pass"""
         # Use default refinement settings - MUST EXIST
         pass_config = {
@@ -198,10 +198,10 @@ class SmartQualityRefiner:
         
         return self._execute_pass(
             image, image_path, prompt, seed,
-            pass_config, "quality", temp_files
+            pass_config, "quality", temp_files, params
         )
     
-    def _execute_pass(self, image, image_path, prompt, seed, config, pass_name, temp_files):
+    def _execute_pass(self, image, image_path, prompt, seed, config, pass_name, temp_files, params=None):
         """Execute a refinement pass - NO ERROR TOLERANCE"""
         # Get parameters
         strength = config['denoising_strength']  # MUST EXIST
@@ -213,11 +213,14 @@ class SmartQualityRefiner:
         
         self.logger.info(f"Executing {pass_name} pass: strength={strength}, steps={steps}")
         
-        # Check VRAM
+        # Check VRAM and tiled refinement preference
         w, h = image.size
         strategy = self.vram_calc.determine_refinement_strategy(w, h)
         
-        if strategy['strategy'] == 'full':
+        # If no_tiled_refinement is True, force full refinement
+        no_tiled = params and params.get('no_tiled_refinement', False)
+        
+        if strategy['strategy'] == 'full' or no_tiled:
             # Full refinement
             generator = torch.Generator(device=self.model.device).manual_seed(seed)
             refined = self.model.refiner_pipe(
